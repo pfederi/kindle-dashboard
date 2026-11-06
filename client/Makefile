@@ -18,7 +18,7 @@ dist: build
 	mkdir -p $(DIST)/dashboard $(DIST)/documents
 	cp bin/dashboard $(DIST)/dashboard/dashboard
 	cp kindle/dashboard/config.example.json $(DIST)/dashboard/config.example.json
-	cp kindle/documents/Dashboard.sh kindle/documents/Dashboard-Diagnose.sh kindle/documents/Dashboard-Systeminfo.sh $(DIST)/documents/
+	cp kindle/documents/Dashboard.sh kindle/documents/Dashboard-Diagnose.sh kindle/documents/Dashboard-Systeminfo.sh kindle/documents/Dashboard-WLAN-Test.sh $(DIST)/documents/
 
 certs:
 	curl -fsSL https://curl.se/ca/cacert.pem -o internal/certs/cacert.pem
