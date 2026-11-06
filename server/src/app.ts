@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import Fastify, { type FastifyError, type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import type { PreviewOptions, Screen } from './dashboard.js';
+import type { Battery } from './monitor.js';
 import { SCREEN } from './render/screen.js';
 import type { ViewName } from './state.js';
 
@@ -20,6 +21,7 @@ function previewIndex(stations: string[]): string {
     ['Heute am Abend (ab 19 Uhr)', 'heute', 'abend=1'],
     ['Heute in der Nacht', 'heute', 'nacht=1'],
     ['Heute mit Gästen', 'heute', 'gast=1'],
+    ['Heute mit fast leerem Akku', 'heute', 'akku=1'],
     ['Woche', 'woche', ''],
     ['Woche mit Gästen', 'woche', 'gast=1'],
     ['Einkauf', 'einkauf', ''],
@@ -48,6 +50,13 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(ha, hb);
 }
 
+/** X-Battery (0–100) and X-Charging (1) from the Kindle; null when absent (clients before 2026-11-06) or invalid. */
+export function batteryFrom(req: FastifyRequest): Battery | null {
+  const level = req.headers['x-battery'];
+  if (typeof level !== 'string' || !/^\d{1,3}$/.test(level) || Number(level) > 100) return null;
+  return { level: Number(level), charging: req.headers['x-charging'] === '1' };
+}
+
 function sendScreen(reply: FastifyReply, s: Screen): FastifyReply {
   reply.header('Content-Type', 'image/png').header('ETag', s.etag).header('X-Refresh-Seconds', String(s.refreshSeconds)).header('Cache-Control', 'no-store');
   if (s.fullRefresh) reply.header('X-Full-Refresh', '1');
@@ -60,6 +69,8 @@ export function buildApp(opts: {
   previewPassword: string;
   /** Station names for the preview index. */
   stations?: string[];
+  /** Called with the battery state the Kindle sends along with a screen request. */
+  onBattery?: (b: Battery) => void;
   logger?: boolean;
   /** For tests. */
   now?: () => number;
@@ -118,7 +129,11 @@ export function buildApp(opts: {
 
   app.get('/healthz', async () => 'ok');
 
-  app.get('/screen.png', { onRequest: deviceAuth }, async (_req, reply) => sendScreen(reply, await opts.dashboard.screen()));
+  app.get('/screen.png', { onRequest: deviceAuth }, async (req, reply) => {
+    const battery = batteryFrom(req);
+    if (battery) opts.onBattery?.(battery);
+    return sendScreen(reply, await opts.dashboard.screen());
+  });
 
   app.post<{ Body: { x: number; y: number; hold?: boolean } }>(
     '/tap',
@@ -145,7 +160,7 @@ export function buildApp(opts: {
 
   app.get('/preview', { onRequest: previewAuth }, async (_req, reply) => reply.header('Content-Type', 'text/html; charset=utf-8').send(previewIndex(opts.stations ?? [])));
 
-  app.get<{ Params: { view: string }; Querystring: { png?: string; station?: string; abend?: string; nacht?: string; gast?: string } }>(
+  app.get<{ Params: { view: string }; Querystring: { png?: string; station?: string; abend?: string; nacht?: string; gast?: string; akku?: string } }>(
     '/preview/:view',
     { onRequest: previewAuth },
     async (req, reply) => {
@@ -158,6 +173,7 @@ export function buildApp(opts: {
         evening: req.query.abend === '1',
         night: req.query.nacht === '1',
         guest: req.query.gast === '1',
+        lowBattery: req.query.akku === '1',
       };
       if (req.query.png === '1') return reply.header('Content-Type', 'image/png').send(await opts.dashboard.previewPng(view, previewOpts));
       return reply.header('Content-Type', 'text/html; charset=utf-8').send(await opts.dashboard.previewHtml(view, previewOpts));

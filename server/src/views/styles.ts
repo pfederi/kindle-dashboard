@@ -13,6 +13,8 @@ html,body{width:${LAYOUT.width}px;height:${LAYOUT.height}px;overflow:hidden;back
 .empty{font-size:38px;color:#555}
 .head{display:flex;justify-content:space-between;align-items:baseline}
 .head .date{font-size:50px;font-weight:700}
+.batt{color:#000;font-weight:700;margin-right:20px;white-space:nowrap}
+.view-nacht .batt{margin-right:0}
 .wx{display:flex;align-items:center;gap:36px}
 .wx .temp{font-size:140px;font-weight:700;line-height:1}
 .wx .tlabel{font-size:28px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:-6px}

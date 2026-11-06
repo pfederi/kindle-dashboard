@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -186,6 +187,34 @@ func (s System) WifiState() (string, error) {
 		return "", fmt.Errorf("lipc-get-prop cmState: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// Battery returns com.lab126.powerd battLevel (percent) and whether isCharging is set.
+func (s System) Battery() (level int, charging bool, err error) {
+	level, err = s.intProp("battLevel")
+	if err != nil {
+		return 0, false, err
+	}
+	if level < 0 || level > 100 {
+		return 0, false, fmt.Errorf("battLevel %d out of range", level)
+	}
+	c, err := s.intProp("isCharging")
+	if err != nil {
+		return 0, false, err
+	}
+	return level, c != 0, nil
+}
+
+func (s System) intProp(name string) (int, error) {
+	out, err := s.Run("lipc-get-prop", "com.lab126.powerd", name)
+	if err != nil {
+		return 0, fmt.Errorf("lipc-get-prop %s: %w: %s", name, err, strings.TrimSpace(string(out)))
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil {
+		return 0, fmt.Errorf("lipc-get-prop %s: %w", name, err)
+	}
+	return n, nil
 }
 
 // SetWireless toggles com.lab126.cmd wirelessEnable.

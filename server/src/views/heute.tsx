@@ -4,7 +4,7 @@ import type { ShoppingData, ShoppingItem } from '../sources/bring/source.js';
 import { describeWmo } from '../sources/wmo.js';
 import { LATE_MIN, leaveAt, reachable } from '../sources/transit.js';
 import { firstRainHour, type HourlyRain, nextHours, rainStartHour, type Weather } from '../sources/weather.js';
-import { AddTaskButton, BIRTHDAY_ROWS, BirthdayBanner, EventList, GuestMark, Icon, LineBadge, TASK_ROWS, Tabs, TaskBox } from './components.js';
+import { AddTaskButton, BatteryMark, BIRTHDAY_ROWS, BirthdayBanner, EventList, GuestMark, Icon, LineBadge, TASK_ROWS, Tabs, TaskBox } from './components.js';
 import type { BoardModel, HeuteModel } from './model.js';
 import { page } from './page.js';
 
@@ -268,7 +268,10 @@ function Heute({ m }: { m: HeuteModel }) {
       <div class="main">
         <div class="head">
           <div class="date serif">{formatLongDate(m.now)}</div>
-          <div class="meta">Stand {formatTime(m.now)}</div>
+          <div class="meta">
+            {m.battery != null && <BatteryMark level={m.battery} />}
+            Stand {formatTime(m.now)}
+          </div>
         </div>
         <div class="rule" />
         <WeatherBlock weather={m.weather} lakeTemp={m.lakeTemp ?? null} now={m.now} evening={m.evening ?? false} />

@@ -150,6 +150,43 @@ func TestSystemErrorWithOutput(t *testing.T) {
 	}
 }
 
+func TestBattery(t *testing.T) {
+	outs := map[string]string{"battLevel": "18\n", "isCharging": "1\n"}
+	var calls [][]string
+	s := System{Run: func(name string, args ...string) ([]byte, error) {
+		calls = append(calls, append([]string{name}, args...))
+		return []byte(outs[args[len(args)-1]]), nil
+	}}
+	level, charging, err := s.Battery()
+	if err != nil || level != 18 || !charging {
+		t.Fatalf("Battery = %d, %v, %v", level, charging, err)
+	}
+	want := [][]string{
+		{"lipc-get-prop", "com.lab126.powerd", "battLevel"},
+		{"lipc-get-prop", "com.lab126.powerd", "isCharging"},
+	}
+	if !reflect.DeepEqual(calls, want) {
+		t.Fatalf("calls = %v", calls)
+	}
+	outs["isCharging"] = "0"
+	if _, charging, _ := s.Battery(); charging {
+		t.Fatal("charging with isCharging 0")
+	}
+}
+
+func TestBatteryErrors(t *testing.T) {
+	for _, out := range []string{"", "abc", "101", "-1"} {
+		s := System{Run: func(string, ...string) ([]byte, error) { return []byte(out), nil }}
+		if _, _, err := s.Battery(); err == nil {
+			t.Errorf("Battery with %q: no error", out)
+		}
+	}
+	r := &recorder{out: "no such property\n", err: errors.New("exit status 1")}
+	if _, _, err := (System{Run: r.run}).Battery(); err == nil || !strings.Contains(err.Error(), "no such property") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 func TestWifiStateError(t *testing.T) {
 	r := &recorder{out: "cmState command failed\n", err: errors.New("exit status 1")}
 	s := System{Run: r.run}

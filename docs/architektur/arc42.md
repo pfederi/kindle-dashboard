@@ -100,13 +100,13 @@ flowchart LR
   server <--> bring[Bring!<br/>Einkaufsliste, Aufgaben]
   admin([Betreiber]) -- Vorschau im Browser --> server
   bringapp([Bring!-App]) <--> bring
-  server -- Push bei Ausfall --> ntfy[ntfy] --> admin
+  server -- Push bei Ausfall oder leerem Akku --> ntfy[ntfy] --> admin
 ```
 
 | Nachbar | Austausch |
 |---|---|
 | Haushalt | sieht Bilder, tippt auf Tabs, Kacheln, Spalten; drückt lange auf die Termine (Gast-Modus) |
-| ntfy | Push-Benachrichtigung an den Betreiber, wenn der Kindle sich nicht mehr meldet |
+| ntfy | Push-Benachrichtigung an den Betreiber, wenn der Kindle sich nicht mehr meldet oder sein Akku fast leer ist |
 | Betreiber | sieht alle Ansichten unter `/preview` |
 | Open-Meteo | aktuelles Wetter, stündlich und täglich für 7 Tage (Temperatur, Regen, Wind in Knoten, Luftdruck, Sonnenzeiten) |
 | Alplakes (Eawag) | Oberflächentemperatur des Zürichsees (Simstrat-Modell) |
@@ -135,11 +135,11 @@ flowchart LR
 
 | Schnittstelle | Protokoll | Inhalt |
 |---|---|---|
-| `GET /screen.png` | HTTPS, `Authorization: Bearer <DEVICE_TOKEN>` | PNG 600 × 800, Header `ETag`, `X-Refresh-Seconds`, `X-Full-Refresh` |
+| `GET /screen.png` | HTTPS, `Authorization: Bearer <DEVICE_TOKEN>`; optional `X-Battery` (0–100) und `X-Charging: 1` | PNG 600 × 800, Header `ETag`, `X-Refresh-Seconds`, `X-Full-Refresh` |
 | `POST /tap` | HTTPS, Bearer | JSON `{x, y, hold?}` in Gerätepixeln, `hold: true` für einen Langdruck; Antwort neues PNG oder `204` |
 | `GET /healthz` | HTTPS | `ok` für den Healthcheck |
-| `GET /preview`, `/preview/:view` | HTTPS, Basic Auth (`admin`) | Übersicht, HTML oder PNG einer Ansicht (`?png=1`, `?station=N`, `?abend=1`, `?nacht=1`) |
-| ntfy (ausgehend) | HTTPS `POST <NTFY_SERVER>/<NTFY_TOPIC>` | Meldung «Kindle meldet sich nicht» bzw. «wieder online» |
+| `GET /preview`, `/preview/:view` | HTTPS, Basic Auth (`admin`) | Übersicht, HTML oder PNG einer Ansicht (`?png=1`, `?station=N`, `?abend=1`, `?nacht=1`, `?akku=1`) |
+| ntfy (ausgehend) | HTTPS `POST <NTFY_SERVER>/<NTFY_TOPIC>` | Meldung «Kindle meldet sich nicht» bzw. «wieder online», «Kindle-Akku fast leer» |
 
 Alle Antworten tragen HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` und `Referrer-Policy: no-referrer`; die Vorschau zusätzlich `Cache-Control: no-store` und eine Content-Security-Policy ohne Skripte und fremde Inhalte.
 
@@ -197,7 +197,7 @@ flowchart TB
 | Gast-Modus | `guest.ts` | Wann Termintitel verborgen werden («Besuch»-Termine, Langdruck), Titel durch Balken ersetzen |
 | Datenquellen | `sources/weather.ts`, `lake.ts`, `calendar.ts`, `transit.ts`, `waste.ts`, `bring/` | Abruf und Aufbereitung je Quelle; Bring! mit zwei Listen (Einkauf, Aufgaben) über eine Anmeldung |
 | Zwischenspeicher | `cache.ts` | Ablaufzeit, Rückfall auf ältere Werte, gleichzeitige Abfragen bündeln |
-| Überwachung | `monitor.ts` | Merkt sich nach jedem Bild, wann der Kindle wiederkommen soll; meldet Ausfall und Rückkehr über ntfy |
+| Überwachung | `monitor.ts` | Merkt sich nach jedem Bild, wann der Kindle wiederkommen soll; meldet Ausfall und Rückkehr über ntfy, ebenso einen Akku ab 20 % |
 | Ansichten | `views/*.tsx`, `styles.ts`, `icons.ts` | Heute, Woche, Einkauf, Hinzufügen, Wetter, Haltestelle als Preact-Komponenten; SVG-Grafiken; gemeinsame Bausteine wie Terminliste (mit Balken im Gast-Modus) und Geburtstagsbanner in `components.tsx` |
 | Renderer | `render/` | Chromium (Playwright), Bildschirmgrösse und Skalierung, Graustufen; blockiert jeden Netzwerkzugriff gerenderter Seiten |
 | Nachtbildschirm | `views/nacht.tsx` | «Gute Nacht» mit Wetter, Terminen und Geburtstagsgruss des kommenden Tages während der Nachtruhe |
@@ -507,7 +507,7 @@ mindmap
 | Kein Autostart nach Neustart | Nach Stromausfall bleibt die Bibliothek stehen | Bewusst so entschieden; bei Bedarf nachrüsten |
 | ÖV-Störungen fehlen | Umleitungen nicht sichtbar | Nachfrage bei VBZ; Umsetzung, sobald Meldungen im Datenstrom erscheinen |
 | Ausfall des Kindle | Eingefrorenes Bild fiel früher erst beim Hinsehen auf | Benachrichtigung über ntfy (`NTFY_TOPIC`) |
-| Akku bei Dauerbetrieb ohne Netzteil | Gerät schaltet ab | Netzteil; optional Akkuanzeige |
+| Akku bei Dauerbetrieb ohne Netzteil | Gerät schaltet ab | Netzteil; ab 20 % Akkuanzeige im Kopf und Push über ntfy |
 | Bring! ändert die Operation für «Dringend» | Umschalten schlägt fehl (Bildschirm blinkt), Anzeige bleibt | Erneut mit einem Testartikel prüfen, Anpassung nach Vorbild bring-api |
 | Gast-Schalter nur im Arbeitsspeicher | Von Hand eingeschalteter Gast-Modus ist nach einem Deployment aus | «Besuch»-Termine greifen weiter; bei Bedarf Zustand auf ein Volume schreiben |
 

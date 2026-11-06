@@ -73,3 +73,40 @@ export class KindleMonitor {
     });
   }
 }
+
+/** Charge level in percent and charging state, as the Kindle reports them with every screen request. */
+export interface Battery {
+  level: number;
+  charging: boolean;
+}
+
+/** From this level (and not charging) the dashboard shows the battery and sends a push notification. */
+export const BATTERY_LOW = 20;
+/** The alert re-arms above this level or on charging, so a level wavering around 20 % alerts only once. */
+export const BATTERY_REARM = 25;
+
+export function batteryLow(b: Battery | null): b is Battery {
+  return b !== null && !b.charging && b.level <= BATTERY_LOW;
+}
+
+/** Alerts once when the battery runs low, and again only after it has been charged. */
+export class BatteryMonitor {
+  private alerted = false;
+
+  constructor(private readonly notify: (n: Notice) => Promise<void>) {}
+
+  report(b: Battery): Promise<void> | undefined {
+    if (b.charging || b.level > BATTERY_REARM) {
+      this.alerted = false;
+      return undefined;
+    }
+    if (this.alerted || !batteryLow(b)) return undefined;
+    this.alerted = true;
+    return this.notify({
+      title: 'Kindle-Akku fast leer',
+      message: `Der Akku des Dashboards ist bei ${b.level} %. Bitte das Netzteil anschliessen.`,
+      tags: 'battery',
+      priority: 'high',
+    });
+  }
+}

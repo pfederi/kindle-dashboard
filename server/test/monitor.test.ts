@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { KindleMonitor, type Notice, ntfySender } from '../src/monitor.js';
+import { BatteryMonitor, batteryLow, KindleMonitor, type Notice, ntfySender } from '../src/monitor.js';
 import { fakeFetch, jsonResponse, testClock } from './helpers.js';
 
 describe('KindleMonitor', () => {
@@ -63,5 +63,37 @@ describe('ntfySender', () => {
     });
     await expect(ntfySender({ server: 'https://ntfy.sh', topic: 't'.repeat(12), graceMinutes: 15 }, failing)({ title: 'x', message: 'y', tags: 'z', priority: 'default' })).resolves.toBeUndefined();
     warn.mockRestore();
+  });
+});
+
+describe('BatteryMonitor', () => {
+  it('alerts once at 20 % and below, and again only after charging or above 25 %', async () => {
+    const sent: Notice[] = [];
+    const m = new BatteryMonitor(async (n) => void sent.push(n));
+    await m.report({ level: 21, charging: false });
+    expect(sent).toEqual([]);
+    await m.report({ level: 20, charging: false });
+    await m.report({ level: 19, charging: false });
+    await m.report({ level: 22, charging: false }); // wavering does not re-arm
+    await m.report({ level: 18, charging: false });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ title: 'Kindle-Akku fast leer', tags: 'battery', priority: 'high' });
+    expect(sent[0]!.message).toContain('20 %');
+    await m.report({ level: 18, charging: true });
+    await m.report({ level: 17, charging: false });
+    expect(sent).toHaveLength(2);
+    await m.report({ level: 26, charging: false });
+    await m.report({ level: 20, charging: false });
+    expect(sent).toHaveLength(3);
+  });
+
+  it('stays quiet while charging, even when low', async () => {
+    const sent: Notice[] = [];
+    await new BatteryMonitor(async (n) => void sent.push(n)).report({ level: 5, charging: true });
+    expect(sent).toEqual([]);
+  });
+
+  it('counts as low from 20 % down, never while charging', () => {
+    expect([batteryLow(null), batteryLow({ level: 21, charging: false }), batteryLow({ level: 20, charging: false }), batteryLow({ level: 3, charging: true })]).toEqual([false, false, true, false]);
   });
 });

@@ -176,6 +176,7 @@ func runUI(logger *log.Logger, cfg config.Config, loc *time.Location, roots *x50
 
 	display := device.FBInk{Path: fbinkPath, TmpFile: tmpImage, Run: device.Exec}
 	client := api.New(cfg.ServerURL, cfg.Token, roots)
+	client.Battery = batteryReader(sys, logger)
 	a := app.New(client, display, wifi.New(sys), overlay.Draw, time.Now, loc, logger)
 	a.Run(ctx, taps, gate)
 	return 0
@@ -350,4 +351,21 @@ func kernelRelease() string {
 		return "unknown"
 	}
 	return strings.TrimSpace(string(b))
+}
+
+// batteryReader reads the battery for each screen request; a failure is logged once, not every
+// two minutes, and then the request goes out without it.
+func batteryReader(sys device.System, logger *log.Logger) func() (api.Battery, bool) {
+	warned := false
+	return func() (api.Battery, bool) {
+		level, charging, err := sys.Battery()
+		if err != nil {
+			if !warned {
+				logger.Printf("battery: %v", err)
+				warned = true
+			}
+			return api.Battery{}, false
+		}
+		return api.Battery{Level: level, Charging: charging}, true
+	}
 }

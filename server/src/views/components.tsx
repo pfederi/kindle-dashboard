@@ -57,6 +57,15 @@ export function GuestMark() {
   );
 }
 
+/** Low battery in the header: an empty battery and the level, in black so it stands out from «Stand». */
+export function BatteryMark({ level }: { level: number }) {
+  return (
+    <span class="batt">
+      <Icon name="battery-low" size={40} /> {level} %
+    </span>
+  );
+}
+
 /** «A», «A & B», «A, B & C». */
 function names(list: string[]): string {
   return list.length < 2 ? (list[0] ?? '') : `${list.slice(0, -1).join(', ')} & ${list.at(-1)}`;

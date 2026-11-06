@@ -3,6 +3,7 @@ import type { Clock } from './clock.js';
 import type { BirthdayConfig, QuietHours } from './config.js';
 import { addDays, isoDate, startOfDay } from './format.js';
 import { guestActive, hideEntries, toggleGuest } from './guest.js';
+import { type Battery, batteryLow } from './monitor.js';
 import type { Renderer } from './render/renderer.js';
 import { type ShoppingSource, urgentFirst } from './sources/bring/source.js';
 import { type CalendarEvent, type DayEntry, entriesForDay } from './sources/calendar.js';
@@ -106,7 +107,11 @@ export interface PreviewOptions {
   night?: boolean;
   /** Guest mode on, whatever the calendar and the device say. */
   guest?: boolean;
+  /** The battery as at PREVIEW_BATTERY %, whatever the Kindle reports. */
+  lowBattery?: boolean;
 }
+
+export const PREVIEW_BATTERY = 15;
 
 interface RenderContext {
   now: Date;
@@ -114,12 +119,14 @@ interface RenderContext {
   /** Previews never change the device state. */
   preview: boolean;
   guest?: boolean;
+  lowBattery?: boolean;
 }
 /** From this hour Heute shows tonight's remaining events, tomorrow's and tomorrow's weather. */
 export const EVENING_HOUR = 19;
 
 export class Dashboard {
   private state: DeviceState;
+  private battery: Battery | null = null;
 
   constructor(private readonly opts: DashboardOptions) {
     this.state = initialState(opts.clock().getTime());
@@ -127,6 +134,18 @@ export class Dashboard {
 
   get view(): ViewName {
     return this.state.view;
+  }
+
+  /** The battery state the Kindle sent with its last screen request. */
+  reportBattery(b: Battery): void {
+    this.battery = b;
+  }
+
+  /** The level to show: only when low and not charging, else null. */
+  private lowBattery(ctx?: RenderContext): number | null {
+    if (ctx?.lowBattery) return PREVIEW_BATTERY;
+    // A preview shows what the Kindle shows.
+    return batteryLow(this.battery) ? this.battery.level : null;
   }
 
   async screen(): Promise<Screen> {
@@ -164,7 +183,7 @@ export class Dashboard {
       now = new Date(now);
       now.setHours(Math.floor(quiet.start / 60), (quiet.start % 60) + 30, 0, 0);
     }
-    return { now, station: opts.station ?? this.state.station, preview: true, guest: opts.guest };
+    return { now, station: opts.station ?? this.state.station, preview: true, guest: opts.guest, lowBattery: opts.lowBattery };
   }
 
   private async apply(action: Action): Promise<boolean> {
@@ -342,6 +361,7 @@ export class Dashboard {
       entries: events ? show([...pickupEntries(pickups ?? [], day), ...entriesForDay(events, day, now)]) : null,
       guest,
       birthdays: birthdaysOn(this.opts.birthdays ?? [], day),
+      battery: this.lowBattery(ctx),
     });
   }
 
@@ -377,6 +397,7 @@ export class Dashboard {
         return heuteHtml({
           now,
           guest,
+          battery: this.lowBattery(ctx),
           birthdays: birthdaysOn(this.opts.birthdays ?? [], now),
           // Bring! lists items in the order they were added: «Dringend» first, then the newest, for the box.
           tasks: taskList === undefined ? undefined : taskList.ok ? urgentFirst([...taskList.items].reverse()).map(({ key, name }) => ({ key, name })) : null,

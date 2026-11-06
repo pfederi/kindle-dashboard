@@ -41,7 +41,7 @@ Ein alter Kindle als Info-Bildschirm für den Eingang: Wetter, Termine, Abfahrte
   <img src="docs/screenshots/hinzufuegen.png" width="160" alt="Hinzufügen">
 </p>
 
-Verspätungen ab 5 Minuten werden schwarz hinterlegt. Abfahrten, die man zu Fuss nicht mehr erreicht, sind grau; über jeder Haltestelle steht, wann man losgehen muss («los 07:45»). In der Nachtruhe (Standard 00:00–05:30) zeigt das Dashboard einen ruhigen Nachtbildschirm mit dem Wichtigsten des kommenden Tages. Ohne Bedienung kehrt das Dashboard nach 2 Minuten zu «Heute» zurück.
+Verspätungen ab 5 Minuten werden schwarz hinterlegt. Abfahrten, die man zu Fuss nicht mehr erreicht, sind grau; über jeder Haltestelle steht, wann man losgehen muss («los 07:45»). In der Nachtruhe (Standard 00:00–05:30) zeigt das Dashboard einen ruhigen Nachtbildschirm mit dem Wichtigsten des kommenden Tages. Ohne Bedienung kehrt das Dashboard nach 2 Minuten zu «Heute» zurück. Fällt der Akku auf 20 % oder weniger und hängt der Kindle nicht am Strom, steht oben rechts in «Heute» und auf dem Nachtbildschirm ein leerer Akku mit dem Ladestand.
 
 **Gast-Modus:** Wenn Besuch da ist, sind alle Termintitel schwarz überdeckt; Uhrzeit, Kalenderkürzel und Papier-/Kartonsammlung bleiben stehen, ein Schloss neben dem Titel zeigt den Modus an. Er schaltet sich selbst ein, solange ein Termin läuft, dessen Titel mit «Besuch» beginnt (z. B. «Besuch Müllers» 18–23 Uhr) – dieser Termin selbst bleibt lesbar. Von Hand: siehe [Bedienung](#bedienung).
 
@@ -101,7 +101,7 @@ Der Server läuft als Docker-Container, z. B. in [Coolify](https://coolify.io).
 | `WEATHER_LAT`, `WEATHER_LON` | | Ort für Wetter, Standard Zürich-Oerlikon (`47.411`, `8.544`) |
 | `WASTE_ZIP` | | Postleitzahl für Papier- und Kartonsammlung der Stadt Zürich, Standard `8050`; leer = aus |
 | `QUIET_HOURS` | | Nachtruhe mit Nachtbildschirm und ohne Aktualisierung, Standard `00:00-05:30`; leer = aus |
-| `NTFY_TOPIC` | | Push-Benachrichtigung über [ntfy](https://ntfy.sh), wenn der Kindle sich nicht mehr meldet: ein schwer erratbarer Name, z. B. `kindle-` + 12 zufällige Zeichen |
+| `NTFY_TOPIC` | | Push-Benachrichtigung über [ntfy](https://ntfy.sh), wenn der Kindle sich nicht mehr meldet oder der Akku fast leer ist: ein schwer erratbarer Name, z. B. `kindle-` + 12 zufällige Zeichen |
 | `NTFY_SERVER` | | ntfy-Server, Standard `https://ntfy.sh` |
 | `OFFLINE_ALERT_MINUTES` | | Toleranz nach der erwarteten nächsten Abfrage, Standard `15` |
 | `REFRESH_SECONDS` | | Abstand der Aktualisierung, Standard `120` |
@@ -119,12 +119,14 @@ Der Server läuft als Docker-Container, z. B. in [Coolify](https://coolify.io).
 ]
 ```
 
-### Benachrichtigung bei Ausfall (optional)
+### Benachrichtigung bei Ausfall und leerem Akku (optional)
 
 1. Die App **ntfy** installieren (iOS/Android) und ein Thema mit einem schwer erratbaren Namen abonnieren, z. B. `kindle-x7Gq2pLm9vRt` (`openssl rand -hex 6` liefert Zufallszeichen).
 2. Denselben Namen in Coolify als `NTFY_TOPIC` eintragen und neu deployen.
 
 Der Server kennt nach jedem Bild den Zeitpunkt der nächsten Abfrage (in der Nachtruhe Stunden später). Bleibt sie länger als `OFFLINE_ALERT_MINUTES` aus, kommt «Kindle meldet sich nicht», nach der Rückkehr «Kindle wieder online».
+
+Der Kindle schickt bei jeder Abfrage seinen Ladestand mit. Sinkt er auf 20 % oder weniger, ohne dass er lädt, kommt einmal «Kindle-Akku fast leer»; erneut erst, nachdem er geladen hat (oder wieder über 25 % liegt). Das braucht den Kindle-Client ab 2026-11-06.
 
 ### Prüfen
 

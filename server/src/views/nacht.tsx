@@ -3,7 +3,7 @@ import { formatLongDate, isoDate } from '../format.js';
 import type { DayEntry } from '../sources/calendar.js';
 import { type DailyWeather, firstRainHour, type Weather } from '../sources/weather.js';
 import { describeWmo } from '../sources/wmo.js';
-import { BirthdayBanner, EventList, GuestMark, Icon, Tabs } from './components.js';
+import { BatteryMark, BirthdayBanner, EventList, GuestMark, Icon, Tabs } from './components.js';
 import { page } from './page.js';
 
 /** Rows of the coming day's entries on the night screen. */
@@ -20,6 +20,8 @@ export interface NachtModel {
   guest?: boolean;
   /** Names of those whose birthday is on `day`. */
   birthdays?: string[];
+  /** Battery level in percent when low (not charging); shown in the header. */
+  battery?: number | null;
 }
 
 function DayWeather({ weather, day }: { weather: Weather; day: Date }) {
@@ -56,6 +58,11 @@ function Nacht({ m }: { m: NachtModel }) {
       <div class="main">
         <div class="head">
           <div class="date serif">{formatLongDate(m.day)}</div>
+          {m.battery != null && (
+            <div class="meta">
+              <BatteryMark level={m.battery} />
+            </div>
+          )}
         </div>
         <div class="rule" />
         <div class="gn">

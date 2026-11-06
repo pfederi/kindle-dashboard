@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -38,6 +39,25 @@ func TestScreenSendsTokenAndParsesHeaders(t *testing.T) {
 	}
 	if s.ETag != `"v1"` || s.RefreshSeconds != 300 || !s.FullRefresh || string(s.PNG) != string(fakePNG) {
 		t.Fatalf("got %+v", s)
+	}
+}
+
+func TestScreenSendsBattery(t *testing.T) {
+	var got []string
+	c := server(t, func(w http.ResponseWriter, r *http.Request) {
+		got = append(got, r.Header.Get("X-Battery")+"/"+r.Header.Get("X-Charging"))
+		w.Write(fakePNG)
+	})
+	ctx := context.Background()
+	c.Screen(ctx) // no reader: no headers
+	c.Battery = func() (Battery, bool) { return Battery{Level: 18}, true }
+	c.Screen(ctx)
+	c.Battery = func() (Battery, bool) { return Battery{Level: 100, Charging: true}, true }
+	c.Screen(ctx)
+	c.Battery = func() (Battery, bool) { return Battery{}, false }
+	c.Screen(ctx)
+	if want := []string{"/", "18/", "100/1", "/"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("headers = %v, want %v", got, want)
 	}
 }
 

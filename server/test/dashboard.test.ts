@@ -243,6 +243,32 @@ describe('Dashboard', () => {
     expect(s.refreshSeconds).toBe(5 * 3600);
   });
 
+  it('shows the battery level in the header of Heute and the night screen only when low and not charging', async () => {
+    const quietHours = { start: 0, end: 330 };
+    const { dash, renderer, clock } = setup({}, { quietHours });
+    await dash.screen();
+    expect(renderer.lastHtml).not.toContain('class="batt"');
+    dash.reportBattery({ level: 21, charging: false });
+    await dash.screen();
+    expect(renderer.lastHtml).not.toContain('class="batt"');
+    dash.reportBattery({ level: 18, charging: false });
+    await dash.screen();
+    expect(renderer.lastHtml).toMatch(/class="batt">.*18 %<\/span>/);
+    clock.set('2026-11-04T00:30:00+01:00');
+    await dash.screen();
+    expect(renderer.lastHtml).toContain('Gute Nacht');
+    expect(renderer.lastHtml).toContain('18 %');
+    dash.reportBattery({ level: 18, charging: true });
+    await dash.screen();
+    expect(renderer.lastHtml).not.toContain('class="batt"');
+  });
+
+  it('previews a low battery', async () => {
+    const { dash } = setup();
+    expect(await dash.previewHtml('heute')).not.toContain('class="batt"');
+    expect(await dash.previewHtml('heute', { lowBattery: true })).toContain('15 %');
+  });
+
   it('previews the night screen by day', async () => {
     const quietHours = { start: 0, end: 330 };
     const { dash } = setup({}, { quietHours });

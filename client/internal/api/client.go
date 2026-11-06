@@ -33,11 +33,21 @@ type Screen struct {
 	FullRefresh    bool
 }
 
+// Battery is the charge level in percent and whether the Kindle is charging.
+type Battery struct {
+	Level    int
+	Charging bool
+}
+
 // Client is an authenticated HTTP client for one server.
 type Client struct {
 	base  string
 	token string
 	http  *http.Client
+
+	// Battery, when set, is read before every screen request and sent along
+	// (X-Battery, X-Charging); ok == false sends nothing. Taps skip it to stay fast.
+	Battery func() (b Battery, ok bool)
 }
 
 // New creates a client. roots == nil uses the system roots (tests only).
@@ -63,6 +73,14 @@ func (c *Client) Screen(ctx context.Context) (*Screen, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/screen.png", nil)
 	if err != nil {
 		return nil, fmt.Errorf("api: %w", err)
+	}
+	if c.Battery != nil {
+		if b, ok := c.Battery(); ok {
+			req.Header.Set("X-Battery", strconv.Itoa(b.Level))
+			if b.Charging {
+				req.Header.Set("X-Charging", "1")
+			}
+		}
 	}
 	return c.do(req)
 }

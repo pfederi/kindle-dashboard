@@ -3,7 +3,7 @@ import { buildApp, type DashboardLike, PREVIEW_LOCK_MS, PREVIEW_MAX_FAILURES } f
 
 const screen = { png: Buffer.from('PNG'), etag: '"abc"', refreshSeconds: 120, fullRefresh: true };
 
-function app(over: Partial<DashboardLike> = {}, now?: () => number) {
+function app(over: Partial<DashboardLike> = {}, now?: () => number, onBattery?: (b: { level: number; charging: boolean }) => void) {
   const dashboard: DashboardLike = {
     screen: vi.fn(async () => screen),
     tap: vi.fn(async () => screen),
@@ -11,7 +11,7 @@ function app(over: Partial<DashboardLike> = {}, now?: () => number) {
     previewPng: vi.fn(async () => Buffer.from('PREVIEW')),
     ...over,
   };
-  return { dashboard, app: buildApp({ dashboard, deviceToken: 'device-token', previewPassword: 'pw', stations: ['Sternen', 'Oerlikon', 'Hallenstadion'], now }) };
+  return { dashboard, app: buildApp({ dashboard, deviceToken: 'device-token', previewPassword: 'pw', stations: ['Sternen', 'Oerlikon', 'Hallenstadion'], now, onBattery }) };
 }
 
 const bearer = { authorization: 'Bearer device-token' };
@@ -41,6 +41,22 @@ describe('HTTP API', () => {
     expect(res.headers['x-full-refresh']).toBe('1');
     expect(res.headers['cache-control']).toBe('no-store');
     expect(res.rawPayload.toString()).toBe('PNG');
+  });
+
+  it('passes the battery state of a screen request on, ignoring missing or invalid values', async () => {
+    const seen: unknown[] = [];
+    const { app: a } = app({}, undefined, (b) => seen.push(b));
+    const get = (h: Record<string, string>) => a.inject({ method: 'GET', url: '/screen.png', headers: { ...bearer, ...h } });
+    await get({ 'x-battery': '18' });
+    await get({ 'x-battery': '100', 'x-charging': '1' });
+    for (const bad of [{}, { 'x-battery': '101' }, { 'x-battery': '-1' }, { 'x-battery': '1e2' }, { 'x-battery': '' }]) expect((await get(bad)).statusCode).toBe(200);
+    expect(seen).toEqual([
+      { level: 18, charging: false },
+      { level: 100, charging: true },
+    ]);
+    // Without a valid token the battery state is not taken.
+    await a.inject({ method: 'GET', url: '/screen.png', headers: { 'x-battery': '5' } });
+    expect(seen).toHaveLength(2);
   });
 
   it('omits X-Full-Refresh when not needed', async () => {
@@ -94,18 +110,20 @@ describe('HTTP API', () => {
     expect(index.body).toContain('>Haltestelle Hallenstadion</a>');
   });
 
-  it('passes the station and the evening simulation to the preview', async () => {
+  it('passes the station, the evening simulation and a low battery to the preview', async () => {
     const { app: a, dashboard } = app();
     await a.inject({ method: 'GET', url: '/preview/station?station=2', headers: basic('admin', 'pw') });
-    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('station', { station: 2, evening: false, night: false, guest: false });
+    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('station', { station: 2, evening: false, night: false, guest: false, lowBattery: false });
     await a.inject({ method: 'GET', url: '/preview/heute?abend=1&png=1', headers: basic('admin', 'pw') });
-    expect(dashboard.previewPng).toHaveBeenLastCalledWith('heute', { station: undefined, evening: true, night: false, guest: false });
+    expect(dashboard.previewPng).toHaveBeenLastCalledWith('heute', { station: undefined, evening: true, night: false, guest: false, lowBattery: false });
     await a.inject({ method: 'GET', url: '/preview/heute?nacht=1', headers: basic('admin', 'pw') });
-    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('heute', { station: undefined, evening: false, night: true, guest: false });
+    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('heute', { station: undefined, evening: false, night: true, guest: false, lowBattery: false });
     await a.inject({ method: 'GET', url: '/preview/wetter', headers: basic('admin', 'pw') });
-    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('wetter', { station: undefined, evening: false, night: false, guest: false });
+    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('wetter', { station: undefined, evening: false, night: false, guest: false, lowBattery: false });
     await a.inject({ method: 'GET', url: '/preview/woche?gast=1', headers: basic('admin', 'pw') });
-    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('woche', { station: undefined, evening: false, night: false, guest: true });
+    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('woche', { station: undefined, evening: false, night: false, guest: true, lowBattery: false });
+    await a.inject({ method: 'GET', url: '/preview/heute?akku=1', headers: basic('admin', 'pw') });
+    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('heute', { station: undefined, evening: false, night: false, guest: false, lowBattery: true });
     expect((await a.inject({ method: 'GET', url: '/preview/station?station=x', headers: basic('admin', 'pw') })).statusCode).toBe(400);
   });
 

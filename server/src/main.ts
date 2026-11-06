@@ -4,7 +4,7 @@ import { systemClock } from './clock.js';
 import { loadConfig } from './config.js';
 import { Dashboard } from './dashboard.js';
 import { startOfWeek } from './format.js';
-import { KindleMonitor, ntfySender } from './monitor.js';
+import { BatteryMonitor, KindleMonitor, ntfySender } from './monitor.js';
 import { refreshSeconds } from './state.js';
 import { PlaywrightRenderer } from './render/renderer.js';
 import { closeAll } from './shutdown.js';
@@ -40,10 +40,12 @@ async function main(): Promise<void> {
     }
   }
 
-  // Push notification when the Kindle stops calling in (optional, NTFY_TOPIC).
-  const monitor = config.ntfy
+  // Push notifications when the Kindle stops calling in or its battery runs low (optional, NTFY_TOPIC).
+  const notify = config.ntfy ? ntfySender(config.ntfy, fetchFn) : null;
+  const batteryMonitor = notify ? new BatteryMonitor(notify) : null;
+  const monitor = config.ntfy && notify
     ? new KindleMonitor(
-        ntfySender(config.ntfy, fetchFn),
+        notify,
         clock,
         config.ntfy.graceMinutes * 60_000,
         refreshSeconds(clock(), config.refreshSeconds, config.quietHours),
@@ -77,6 +79,10 @@ async function main(): Promise<void> {
     deviceToken: config.deviceToken,
     previewPassword: config.previewPassword,
     stations: config.stations.map((s) => s.name),
+    onBattery: (b) => {
+      dashboard.reportBattery(b);
+      void batteryMonitor?.report(b);
+    },
     logger: true,
   });
   let shuttingDown = false;

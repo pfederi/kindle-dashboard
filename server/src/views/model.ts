@@ -33,6 +33,8 @@ export interface HeuteModel {
   guest?: boolean;
   /** Names of those whose birthday is today; greeted above the events. */
   birthdays?: string[];
+  /** Battery level in percent when low (not charging); shown in the header. */
+  battery?: number | null;
   /** Open tasks, newest first; null = list unavailable; absent = no task list configured. */
   tasks?: TaskItem[] | null;
   boards: BoardModel[];
