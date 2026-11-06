@@ -17,6 +17,7 @@ Collected on 2026-11-03 with `Dashboard-Diagnose.sh`; raw files in `testdata/dev
 | Wi-Fi `cmState` | CONNECTED | CONNECTED | Network available during test |
 | UI restore after `stop`/`start lab126_gui` | library returns | 30 s boot splash (tree + progress bar, no reboot: uptime kept), then appmgrd «Timed out waiting for app to finish GO» for `com.lab126.booklet.home` and the alert `appmgrAppFailedFatal` («Softwarefehler»); appmgrd is not part of `lab126_gui` and keeps its state | The client pauses the UI instead (as KOReader on FW ≥ 5.7.2): framebuffer saved, `disableEnablePillow disable`, `killall -STOP awesome`; on exit `-CONT awesome`, framebuffer restored, pillow enabled, `appmgrd start app://com.lab126.booklet.home` |
 | Screen size | 1072 × 1448 (Paperwhite 3) | 600 × 800, 167 ppi: the first start showed only the top-left part of a 1072 × 1448 image | WP63GW is the Kindle 7th generation, not a Paperwhite 3. Server renders 600 × 800 (layout 1072 × 1429 CSS px, scale 0.56); client defaults `screenWidth` 600 / `screenHeight` 800 |
+| WLAN off/on with the UI paused (`Dashboard-WLAN-Test.sh`, 2026-11-06) | turns off and back on | `wirelessEnable 0` → cmState `NA` for 60 s, nothing turns it back on; `wirelessEnable 1` → `CONNECTED` after 6 s. wpa_supplicant crashed once on the way up («undefined instruction», «wpa connect failed»); wifid restarted it and connected anyway. `battLevel` 91, `isCharging` 0 read fine | Night WLAN off is safe; a tap at night waits about 6 s; the Ensurer's off/on retry covers a failed reconnect |
 
 ## Decisions
 
