@@ -53,6 +53,14 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...base, STATIONS: st('5') })).toThrow(/STATIONS\[0\]\.walk/);
   });
 
+  it('reads the guest WLAN, open networks too, and checks its limits', () => {
+    expect(loadConfig(base).guestWifi).toBeNull();
+    expect(loadConfig({ ...base, GUEST_WIFI_SSID: ' Gast-Netz ', GUEST_WIFI_PASSWORD: 'sonnenblume42' }).guestWifi).toEqual({ ssid: 'Gast-Netz', password: 'sonnenblume42' });
+    expect(loadConfig({ ...base, GUEST_WIFI_SSID: 'Gast-Netz' }).guestWifi).toEqual({ ssid: 'Gast-Netz', password: '' });
+    expect(() => loadConfig({ ...base, GUEST_WIFI_SSID: 'Gast-Netz', GUEST_WIFI_PASSWORD: 'kurz' })).toThrow(/GUEST_WIFI_PASSWORD/);
+    expect(() => loadConfig({ ...base, GUEST_WIFI_SSID: 'x'.repeat(33) })).toThrow(/GUEST_WIFI_SSID/);
+  });
+
   it('sets up ntfy alerts with a hard-to-guess topic', () => {
     expect(loadConfig({ ...base, NTFY_TOPIC: 'kindle-x7Gq2pLm9vRt' }).ntfy).toEqual({ server: 'https://ntfy.sh', topic: 'kindle-x7Gq2pLm9vRt', graceMinutes: 15 });
     expect(loadConfig({ ...base, NTFY_TOPIC: 'kindle-x7Gq2pLm9vRt', NTFY_SERVER: 'https://ntfy.example.ch/', OFFLINE_ALERT_MINUTES: '30' }).ntfy).toEqual({

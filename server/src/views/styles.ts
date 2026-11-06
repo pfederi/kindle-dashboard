@@ -81,6 +81,10 @@ html,body{width:${LAYOUT.width}px;height:${LAYOUT.height}px;overflow:hidden;back
 .wn{display:flex;align-items:center;gap:36px}
 .wn{flex:none}
 /* Night screen */
+.view-willkommen .main{align-items:center;justify-content:center;gap:40px;text-align:center}
+.hello{font-size:84px;font-weight:700;line-height:1.1}
+.qr{line-height:0}
+.wifi{font-size:44px;line-height:1.5}
 .gn{display:flex;align-items:center;justify-content:center;gap:36px;padding:70px 0 60px;flex:none}
 .gn .serif{font-size:110px;font-weight:700;line-height:1}
 .nw{display:flex;align-items:center;gap:30px;margin:6px 0 26px;flex:none}

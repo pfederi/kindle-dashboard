@@ -1,4 +1,5 @@
 import type { Clock } from './clock.js';
+import { type HealthRegistry, sourceHealth } from './health.js';
 
 export interface Cached<T> {
   value: T;
@@ -27,6 +28,7 @@ export class TtlCache<T> {
     private readonly load: () => Promise<T>,
     private readonly clock: Clock,
     private readonly name = 'cache',
+    private readonly health: HealthRegistry = sourceHealth,
   ) {}
 
   async get(force = false): Promise<Cached<T> | null> {
@@ -50,6 +52,7 @@ export class TtlCache<T> {
       .then(() => this.load())
       .then(
         (value) => {
+          this.health.ok(this.name, this.clock());
           // Only update if generation hasn't changed since THIS load started (currentGen captured at start)
           if (currentGen === this.generation) {
             this.entry = { value, fetchedAt: this.clock() };
@@ -62,7 +65,9 @@ export class TtlCache<T> {
           return this.entry;
         },
         (err: unknown) => {
-          console.warn(`[${this.name}] load failed: ${scrubUrls(err instanceof Error ? err.message : String(err))}`);
+          const message = scrubUrls(err instanceof Error ? err.message : String(err));
+          console.warn(`[${this.name}] load failed: ${message}`);
+          this.health.fail(this.name, this.clock(), message);
           if (currentGen === this.generation) {
             return this.entry;
           } else if (this.inflight && this.inflight !== thisPromise) {

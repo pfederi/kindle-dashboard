@@ -44,3 +44,22 @@ export function toggleGuest(events: CalendarEvent[], now: Date, override: GuestO
 export function hideEntries(entries: DayEntry[]): DayEntry[] {
   return entries.map((e) => (e.waste || isVisit(e.title) ? e : { ...e, title: '', hidden: true }));
 }
+
+/** «Besuch Müllers» → «Müllers»; also «Besuch: …», «Besuch – …», «Besuch von …». */
+export function visitorName(title: string): string {
+  return title
+    .replace(/^\s*besuch\s*/i, '')
+    .replace(/^[:\-–—]\s*/, '')
+    .replace(/^(von|bei)\s+/i, '')
+    .trim();
+}
+
+/** Names of the visits running now, in calendar order, without duplicates. */
+export function visitorNames(events: CalendarEvent[], now: Date): string[] {
+  const out: string[] = [];
+  for (const e of running(events, now)) {
+    const name = isVisit(e.title) ? visitorName(e.title) : '';
+    if (name && !out.includes(name)) out.push(name);
+  }
+  return out;
+}

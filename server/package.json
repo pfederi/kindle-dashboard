@@ -2,7 +2,9 @@
   "name": "kindle-dashboard-server",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "TZ=Europe/Zurich tsx watch src/main.ts",
     "build": "tsc",
@@ -21,10 +23,12 @@
     "playwright": "1.64.1",
     "preact": "11.1.1",
     "preact-render-to-string": "6.8.2",
+    "qrcode-generator": "2.0.4",
     "sharp": "0.35.5"
   },
   "devDependencies": {
     "@types/node": "26.6.6",
+    "jsqr": "1.4.0",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vitest": "5.1.0"

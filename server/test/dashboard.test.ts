@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { BirthdayConfig, QuietHours } from '../src/config.js';
+import type { BirthdayConfig, QuietHours, GuestWifi } from '../src/config.js';
 import { Dashboard, type Sources } from '../src/dashboard.js';
 import type { Renderer } from '../src/render/renderer.js';
 import type { ShoppingSource } from '../src/sources/bring/source.js';
@@ -65,7 +65,7 @@ function taskSource(names: string[]): ShoppingSource & { open: string[] } {
   };
 }
 
-function setup(over: Partial<ShoppingSource> = {}, opts: { at?: string; quietHours?: QuietHours | null; birthdays?: BirthdayConfig[] } = {}) {
+function setup(over: Partial<ShoppingSource> = {}, opts: { at?: string; quietHours?: QuietHours | null; birthdays?: BirthdayConfig[]; guestWifi?: GuestWifi } = {}) {
   const clock = testClock(opts.at ?? '2026-11-03T07:40:00+01:00');
   const renderer = new FakeRenderer();
   const src = sources(over);
@@ -77,6 +77,7 @@ function setup(over: Partial<ShoppingSource> = {}, opts: { at?: string; quietHou
     quietHours: opts.quietHours ?? null,
     viewResetSeconds: 120,
     birthdays: opts.birthdays,
+    guestWifi: opts.guestWifi,
   });
   const tapAction = async (action: string) => {
     const zones = (dash as unknown as { state: { zones: Zone[] } }).state.zones;
@@ -545,6 +546,53 @@ describe('Dashboard', () => {
       await holdAction('guest');
       expect(renderer.lastHtml).toContain('Zahnarzt');
       expect(renderer.lastHtml).not.toContain('class="guest"');
+    });
+
+    describe('welcome screen (GUEST_WIFI_SSID set)', () => {
+      const guestWifi = { ssid: 'Gast-Netz', password: 'sonnenblume42' };
+
+      it('replaces Heute during a visit with a greeting of the visitors and the WLAN, and returns afterwards', async () => {
+        const { dash, renderer, src, clock } = setup({}, { guestWifi });
+        src.calendar.events = vi.fn(async () => [event('Besuch Müllers', '07:00', '08:00'), event('Besuch: Oma', '07:30', '09:00'), event('Zahnarzt', '07:30', '08:30')]);
+        await dash.screen();
+        expect(renderer.lastHtml).toContain('view-willkommen');
+        expect(renderer.lastHtml).toContain('Müllers &amp; Oma!');
+        expect(renderer.lastHtml).toContain('Gast-Netz');
+        expect(renderer.lastHtml).not.toContain('Zahnarzt');
+        clock.set('2026-11-03T09:00:00+01:00');
+        await dash.screen();
+        expect(renderer.lastHtml).toContain('view-heute');
+      });
+
+      it('greets without names when switched on by hand, and a long press on it switches back', async () => {
+        const { dash, renderer, src, holdAction } = setup({}, { guestWifi });
+        src.calendar.events = vi.fn(async () => [event('Zahnarzt', '09:00', '10:00')]);
+        await dash.screen();
+        await holdAction('guest');
+        expect(renderer.lastHtml).toContain('Herzlich willkommen!');
+        await holdAction('guest');
+        expect(renderer.lastHtml).toContain('Zahnarzt');
+      });
+
+      it('keeps Woche blacked out, shows the night screen in the quiet hours, and previews it with gast=1', async () => {
+        const { dash, renderer, src, tapAction, clock } = setup({}, { guestWifi, quietHours: { start: 0, end: 330 } });
+        src.calendar.events = vi.fn(async () => [event('Besuch Müllers', '00:00', '23:59'), event('Zahnarzt', '09:00', '10:00')]);
+        await dash.screen();
+        await tapAction('nav:woche');
+        expect(renderer.lastHtml).toContain('ev-title hidden');
+        clock.set('2026-11-03T03:00:00+01:00');
+        await tapAction('nav:heute');
+        expect(renderer.lastHtml).toContain('view-nacht');
+        src.calendar.events = vi.fn(async () => []);
+        expect(await dash.previewHtml('heute', { guest: true })).toContain('view-willkommen');
+      });
+
+      it('without GUEST_WIFI_SSID Heute stays as it was', async () => {
+        const { dash, renderer, src } = setup();
+        src.calendar.events = vi.fn(async () => [event('Besuch Müllers', '07:00', '08:00')]);
+        await dash.screen();
+        expect(renderer.lastHtml).toContain('view-heute');
+      });
     });
 
     it('turns on by itself during a visit, which stays readable; a long press turns it off until the visit ends', async () => {

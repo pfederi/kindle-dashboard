@@ -4,8 +4,11 @@ import { systemClock } from './clock.js';
 import { loadConfig } from './config.js';
 import { Dashboard } from './dashboard.js';
 import { startOfWeek } from './format.js';
-import { type Battery, BatteryMonitor, KindleMonitor, ntfySender } from './monitor.js';
+import { BatteryMonitor, KindleMonitor, ntfySender } from './monitor.js';
 import { refreshSeconds } from './state.js';
+import { sourceHealth } from './health.js';
+import { DeviceStatus } from './status.js';
+import { statusHtml } from './views/status.js';
 import { PlaywrightRenderer } from './render/renderer.js';
 import { closeAll } from './shutdown.js';
 import { type BringCatalog, loadCatalog, verbatimNames } from './sources/bring/catalog.js';
@@ -54,6 +57,7 @@ async function main(): Promise<void> {
   const monitorTimer = monitor ? setInterval(() => void monitor.check(), 60_000) : null;
   monitorTimer?.unref();
 
+  const status = new DeviceStatus(clock);
   const renderer = await PlaywrightRenderer.launch();
   const dashboard = new Dashboard({
     sources: {
@@ -71,16 +75,12 @@ async function main(): Promise<void> {
     quietHours: config.quietHours,
     viewResetSeconds: config.viewResetSeconds,
     birthdays: config.birthdays,
-    onDelivered: monitor ? (seconds) => void monitor.seen(seconds) : undefined,
+    guestWifi: config.guestWifi,
+    onDelivered: (seconds) => {
+      status.delivered(seconds);
+      void monitor?.seen(seconds);
+    },
   });
-
-  // Every change of the level, so the log shows how fast the battery drains (Coolify adds the time).
-  let lastBattery = '';
-  const logBattery = (b: Battery) => {
-    const line = `[battery] ${b.level} %${b.charging ? ' lädt' : ''}`;
-    if (line !== lastBattery) console.log(line);
-    lastBattery = line;
-  };
 
   const app = buildApp({
     dashboard,
@@ -88,10 +88,13 @@ async function main(): Promise<void> {
     previewPassword: config.previewPassword,
     stations: config.stations.map((s) => s.name),
     onBattery: (b) => {
-      logBattery(b);
+      // Every change of the level, so the log shows how fast the battery drains (Coolify adds the time).
+      if (status.battery(b)) console.log(`[battery] ${b.level} %${b.charging ? ' lädt' : ''}`);
       dashboard.reportBattery(b);
       void batteryMonitor?.report(b);
     },
+    statusHtml: () =>
+      statusHtml({ now: clock(), startedAt: status.startedAt, lastSeen: status.lastSeen, nextDue: status.nextDue, battery: status.history(), sources: sourceHealth.list() }),
     logger: true,
   });
   let shuttingDown = false;

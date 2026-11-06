@@ -29,7 +29,8 @@ function previewIndex(stations: string[]): string {
     ['Wetter', 'wetter', ''],
     ...stations.map((name, i): [string, string, string] => [`Haltestelle ${name}`, 'station', `station=${i}`]),
   ];
-  const rows = entries.map(([label, view, q]) => {
+  const status = '<li><a href="/preview/status">Status: Kindle, Akku, Datenquellen</a></li>';
+  const rows = status + entries.map(([label, view, q]) => {
     const href = `/preview/${view}${q ? `?${q}` : ''}`;
     const png = `/preview/${view}?${q ? `${q}&amp;` : ''}png=1`;
     return `<li><a href="${href}">${label}</a> · <a href="${png}">PNG wie auf dem Kindle</a></li>`;
@@ -71,6 +72,8 @@ export function buildApp(opts: {
   stations?: string[];
   /** Called with the battery state the Kindle sends along with a screen request. */
   onBattery?: (b: Battery) => void;
+  /** The status page under /preview/status. */
+  statusHtml?: () => string;
   logger?: boolean;
   /** For tests. */
   now?: () => number;
@@ -159,6 +162,11 @@ export function buildApp(opts: {
   );
 
   app.get('/preview', { onRequest: previewAuth }, async (_req, reply) => reply.header('Content-Type', 'text/html; charset=utf-8').send(previewIndex(opts.stations ?? [])));
+
+  app.get('/preview/status', { onRequest: previewAuth }, async (_req, reply) => {
+    if (!opts.statusHtml) return reply.code(404).send();
+    return reply.header('Content-Type', 'text/html; charset=utf-8').send(opts.statusHtml());
+  });
 
   app.get<{ Params: { view: string }; Querystring: { png?: string; station?: string; abend?: string; nacht?: string; gast?: string; akku?: string } }>(
     '/preview/:view',

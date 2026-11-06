@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { TtlCache } from '../src/cache.js';
+import { HealthRegistry } from '../src/health.js';
 import { testClock } from './helpers.js';
 
 describe('TtlCache', () => {
@@ -224,5 +225,21 @@ describe('TtlCache', () => {
     expect(result1?.value).toBe('value2'); // p1 got load2's value through chaining
 
     expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports successes and failures, without URLs, to the health registry', async () => {
+    const clock = testClock('2026-11-03T07:00:00+01:00');
+    const health = new HealthRegistry();
+    let fail = false;
+    const cache = new TtlCache(60_000, async () => { if (fail) throw new Error('GET https://secret.example/cal.ics failed'); return 1; }, clock, 'calendar:FAM', health);
+    await cache.get();
+    clock.advance(61_000);
+    fail = true;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await cache.get();
+    warn.mockRestore();
+    expect(health.list()).toEqual([
+      { name: 'calendar:FAM', lastOk: new Date('2026-11-03T07:00:00+01:00'), lastError: { at: new Date('2026-11-03T07:01:01+01:00'), message: 'GET <url> failed' } },
+    ]);
   });
 });

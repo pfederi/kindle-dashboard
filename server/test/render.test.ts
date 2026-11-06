@@ -10,6 +10,8 @@ import { nachtHtml } from '../src/views/nacht.js';
 import { TASK_SUGGESTIONS } from '../src/sources/bring/source.js';
 import { wetterHtml } from '../src/views/wetter.js';
 import { wocheHtml } from '../src/views/woche.js';
+import { willkommenHtml } from '../src/views/willkommen.js';
+import jsQR from 'jsqr';
 import { dryWeather, entry, fullBoards, heuteModel, NOW } from './fixtures/models.js';
 
 let renderer: PlaywrightRenderer;
@@ -201,6 +203,21 @@ describe('PlaywrightRenderer', () => {
     const add = zones.find((z) => z.action === 'nav:hinzufuegen')!;
     expect(list.h / SCALE).toBeGreaterThanOrEqual(80);
     expect(list.x + list.w).toBeLessThanOrEqual(add.x); // side by side, no overlap
+  });
+
+  it('the welcome screen QR code reads back from the Kindle image, with long names and an umlaut in the SSID', async () => {
+    for (const [guests, wifi, payload] of [
+      [['Müllers'], { ssid: 'Gast-Netz', password: 'sonnenblume42' }, 'WIFI:T:WPA;S:Gast-Netz;P:sonnenblume42;;'],
+      [['Familie Meier-Schneider', 'Grossmami'], { ssid: 'Gäste;WLAN', password: 'a:b,c"d\\e123' }, 'WIFI:T:WPA;S:Gäste\\;WLAN;P:a\\:b\\,c\\"d\\\\e123;;'],
+      [[], { ssid: 'Offen', password: '' }, 'WIFI:T:nopass;S:Offen;;'],
+    ] as const) {
+      const html = willkommenHtml({ guests: [...guests], wifi });
+      const { png } = await renderer.render(html);
+      const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      expect(jsQR(new Uint8ClampedArray(data), info.width, info.height)?.data).toBe(payload);
+      const b = await boxes(html, ['.wifi', '.tabs']);
+      expect(b['.wifi']!.bottom).toBeLessThanOrEqual(b['.tabs']!.top);
+    }
   });
 
   it('the header keeps the longest date and a low battery on one line', async () => {

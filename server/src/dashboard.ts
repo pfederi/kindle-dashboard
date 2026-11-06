@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import type { Clock } from './clock.js';
-import type { BirthdayConfig, QuietHours } from './config.js';
+import type { BirthdayConfig, GuestWifi, QuietHours } from './config.js';
 import { addDays, isoDate, startOfDay } from './format.js';
-import { guestActive, hideEntries, toggleGuest } from './guest.js';
+import { guestActive, hideEntries, toggleGuest, visitorNames } from './guest.js';
 import { type Battery, batteryLow } from './monitor.js';
 import type { Renderer } from './render/renderer.js';
 import { type ShoppingSource, urgentFirst } from './sources/bring/source.js';
@@ -30,6 +30,7 @@ import { hinzufuegenHtml } from './views/hinzufuegen.js';
 import { nachtHtml } from './views/nacht.js';
 import { stationHtml } from './views/station.js';
 import { wetterHtml } from './views/wetter.js';
+import { willkommenHtml } from './views/willkommen.js';
 import { wocheHtml } from './views/woche.js';
 import { hitTest } from './zones.js';
 
@@ -62,6 +63,8 @@ export interface DashboardOptions {
   viewResetSeconds: number;
   /** Greeted on Heute and the night screen on their day. */
   birthdays?: BirthdayConfig[];
+  /** Guest WLAN: during a visit Heute becomes a welcome screen with its QR code. */
+  guestWifi?: GuestWifi | null;
   /** Called with the refresh interval of every screen delivered to the Kindle (not for previews). */
   onDelivered?: (refreshSeconds: number) => void;
 }
@@ -372,6 +375,12 @@ export class Dashboard {
     switch (view) {
       case 'heute': {
         if (isQuiet(now, this.opts.quietHours)) return this.nachtHtmlFor(now, force, ctx);
+        const wifi = this.opts.guestWifi;
+        if (wifi) {
+          // Not forced: the check joins a running calendar load instead of starting another.
+          const running = (await calendar.events(now, new Date(now.getTime() + 1))) ?? [];
+          if (ctx?.guest || guestActive(running, now, this.state.guest)) return willkommenHtml({ guests: visitorNames(running, now), wifi });
+        }
         const day = startOfDay(now);
         const evening = now.getHours() >= EVENING_HOUR;
         const tomorrow = addDays(day, 1);

@@ -32,6 +32,13 @@ export interface QuietHours {
   end: number;
 }
 
+/** Guest WLAN shown as a QR code on the welcome screen during a visit. */
+export interface GuestWifi {
+  ssid: string;
+  /** '' = open network. */
+  password: string;
+}
+
 export interface BringConfig {
   email: string;
   password: string;
@@ -57,6 +64,8 @@ export interface Config {
   refreshSeconds: number;
   quietHours: QuietHours | null;
   viewResetSeconds: number;
+  /** Welcome screen with a WLAN QR code during a visit; null when GUEST_WIFI_SSID is not set. */
+  guestWifi: GuestWifi | null;
 }
 
 export const DEFAULT_STATIONS: StationConfig[] = [
@@ -160,6 +169,16 @@ function wasteZip(raw: string | undefined): string {
   return zip;
 }
 
+function guestWifi(env: Env): GuestWifi | null {
+  const ssid = env.GUEST_WIFI_SSID?.trim();
+  if (!ssid) return null;
+  // WLAN limits: SSID up to 32 bytes, WPA passphrase 8–63 characters.
+  if (Buffer.byteLength(ssid) > 32) throw new Error('GUEST_WIFI_SSID must be at most 32 bytes');
+  const password = env.GUEST_WIFI_PASSWORD ?? '';
+  if (password !== '' && (password.length < 8 || password.length > 63)) throw new Error('GUEST_WIFI_PASSWORD must be 8–63 characters or empty (open network)');
+  return { ssid, password };
+}
+
 function ntfy(env: Env): NtfyConfig | null {
   const topic = env.NTFY_TOPIC?.trim();
   if (!topic) return null;
@@ -209,6 +228,7 @@ export function loadConfig(env: Env): Config {
     refreshSeconds: int(env, 'REFRESH_SECONDS', 120),
     quietHours: quiet(env.QUIET_HOURS),
     ntfy: ntfy(env),
+    guestWifi: guestWifi(env),
     viewResetSeconds: int(env, 'VIEW_RESET_SECONDS', 120),
   };
 }

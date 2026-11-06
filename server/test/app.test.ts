@@ -99,12 +99,21 @@ describe('HTTP API', () => {
     expect((await a.inject({ method: 'GET', url: '/preview/nope', headers: basic('admin', 'pw') })).statusCode).toBe(404);
   });
 
+  it('serves the status page behind the preview password, 404 when not wired', async () => {
+    const dashboard = app().dashboard;
+    const a = buildApp({ dashboard, deviceToken: 'device-token', previewPassword: 'pw', statusHtml: () => '<html>status</html>' });
+    expect((await a.inject({ method: 'GET', url: '/preview/status' })).statusCode).toBe(401);
+    const res = await a.inject({ method: 'GET', url: '/preview/status', headers: basic('admin', 'pw') });
+    expect([res.statusCode, res.body, res.headers['cache-control']]).toEqual([200, '<html>status</html>', 'no-store']);
+    expect((await app().app.inject({ method: 'GET', url: '/preview/status', headers: basic('admin', 'pw') })).statusCode).toBe(404);
+  });
+
   it('lists all previews on an index page behind the same password', async () => {
     const { app: a } = app();
     expect((await a.inject({ method: 'GET', url: '/preview' })).statusCode).toBe(401);
     const index = await a.inject({ method: 'GET', url: '/preview', headers: basic('admin', 'pw') });
     expect(index.statusCode).toBe(200);
-    for (const href of ['/preview/heute?abend=1', '/preview/heute?nacht=1', '/preview/heute?gast=1', '/preview/woche?gast=1', '/preview/wetter', '/preview/station?station=2', '/preview/station?station=2&amp;png=1']) {
+    for (const href of ['/preview/heute?abend=1', '/preview/heute?nacht=1', '/preview/heute?gast=1', '/preview/woche?gast=1', '/preview/wetter', '/preview/station?station=2', '/preview/station?station=2&amp;png=1', '/preview/status', '/preview/heute?akku=1']) {
       expect(index.body).toContain(`href="${href}"`);
     }
     expect(index.body).toContain('>Haltestelle Hallenstadion</a>');

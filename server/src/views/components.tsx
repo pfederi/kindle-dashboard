@@ -68,7 +68,7 @@ export function BatteryMark({ level }: { level: number }) {
 }
 
 /** «A», «A & B», «A, B & C». */
-function names(list: string[]): string {
+export function names(list: string[]): string {
   return list.length < 2 ? (list[0] ?? '') : `${list.slice(0, -1).join(', ')} & ${list.at(-1)}`;
 }
 

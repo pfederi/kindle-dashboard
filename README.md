@@ -45,6 +45,8 @@ Verspätungen ab 5 Minuten werden schwarz hinterlegt. Abfahrten, die man zu Fuss
 
 **Gast-Modus:** Wenn Besuch da ist, sind alle Termintitel schwarz überdeckt; Uhrzeit, Kalenderkürzel und Papier-/Kartonsammlung bleiben stehen, ein Schloss neben dem Titel zeigt den Modus an. Er schaltet sich selbst ein, solange ein Termin läuft, dessen Titel mit «Besuch» beginnt (z. B. «Besuch Müllers» 18–23 Uhr) – dieser Termin selbst bleibt lesbar. Von Hand: siehe [Bedienung](#bedienung).
 
+**Begrüssung mit Gäste-WLAN:** Sind `GUEST_WIFI_SSID` (und `GUEST_WIFI_PASSWORD`) gesetzt, zeigt «Heute» im Gast-Modus stattdessen gross «Herzlich willkommen Müllers!» – der Name ist alles, was im Termin nach «Besuch» steht (auch «Besuch: …», «Besuch von …») – und darunter einen QR-Code fürs Gäste-WLAN mit Netzname und Passwort. Mit dem Handy scannen, verbunden. «Woche» und «Einkauf» bleiben über die Tabs erreichbar, in der Nachtruhe gilt der Nachtbildschirm. Ein Langdruck auf die Begrüssung beendet den Gast-Modus.
+
 **Geburtstage** (`BIRTHDAYS`) grüsst «Heute» den ganzen Tag gross über den Terminen mit «Happy Birthday …!» und einem Kuchen, ebenso der Nachtbildschirm, wenn er diesen Tag zeigt (mit der Standard-Nachtruhe also von 00:00 bis 05:30 am Geburtstag).
 
 <p>
@@ -100,6 +102,7 @@ Der Server läuft als Docker-Container, z. B. in [Coolify](https://coolify.io).
 | `BIRTHDAYS` | | Geburtstage als JSON, Datum `MM-TT`: `[{"name":"Anna","date":"12-01"}]`. Am Tag steht in «Heute» und auf dem Nachtbildschirm gross «Happy Birthday Anna!» mit Kuchen. Standard: keine |
 | `WEATHER_LAT`, `WEATHER_LON` | | Ort für Wetter, Standard Zürich-Oerlikon (`47.411`, `8.544`) |
 | `WASTE_ZIP` | | Postleitzahl für Papier- und Kartonsammlung der Stadt Zürich, Standard `8050`; leer = aus |
+| `GUEST_WIFI_SSID`, `GUEST_WIFI_PASSWORD` | | Gäste-WLAN für die Begrüssung im Gast-Modus; ohne Passwort = offenes Netz. Ohne `GUEST_WIFI_SSID` bleibt der Gast-Modus wie bisher (geschwärzte Titel). Das Passwort nur in Coolify eintragen. |
 | `QUIET_HOURS` | | Nachtruhe mit Nachtbildschirm, ohne Aktualisierung und mit ausgeschaltetem WLAN (spart Akku), Standard `00:00-05:30`, über Mitternacht möglich (z. B. `22:30-06:00`); leer = aus |
 | `NTFY_TOPIC` | | Push-Benachrichtigung über [ntfy](https://ntfy.sh), wenn der Kindle sich nicht mehr meldet oder der Akku fast leer ist: ein schwer erratbarer Name, z. B. `kindle-` + 12 zufällige Zeichen |
 | `NTFY_SERVER` | | ntfy-Server, Standard `https://ntfy.sh` |
@@ -202,6 +205,8 @@ Während das Dashboard läuft, ist die Kindle-Oberfläche nur angehalten, nicht 
 
 `https://kindle.example.ch/preview` (Benutzer `admin`, Passwort `PREVIEW_PASSWORD`) listet alle Ansichten – als Webseite und als PNG genau so, wie es der Kindle bekommt. Darunter auch «Heute am Abend» und «Heute in der Nacht», um Abendmodus und Nachtbildschirm tagsüber zu sehen, «Heute/Woche mit Gästen» für den Gast-Modus, und jede Haltestelle. Die Vorschau zeigt echte Daten und verändert den Zustand des Kindle nicht.
 
+Ganz oben steht **Status** (`/preview/status`): letzte und nächste Abfrage des Kindle (mit «überfällig»), der aktuelle Ladestand, eine Akkukurve der letzten 7 Tage mit den Ladezeiten, und für jede Datenquelle den letzten Erfolg und den letzten Fehler. Alles liegt nur im Arbeitsspeicher und beginnt nach einem Deployment neu.
+
 ## Fehlersuche
 
 | Problem | Lösung |
@@ -221,7 +226,7 @@ Gerätedetails und Erkenntnisse vom Testen stehen in [`client/DEVICE_FACTS.md`](
 ## Sicherheit
 
 - **Zugang:** Der Kindle meldet sich mit einem zufälligen 256-Bit-Token, die Vorschau mit Benutzer `admin` und Passwort; beides wird in konstanter Zeit verglichen. Nach 20 falschen Vorschau-Passwörtern sperrt der Server die Vorschau für 15 Minuten.
-- **Geheimnisse** (Token, Passwort, iCal-Adressen, Bring!-Zugang, ntfy-Thema) stehen nur in Coolify bzw. in `config.json` auf dem Kindle – nie im Repository und nie in Logs. In Coolify bei diesen Variablen **keinen** Haken bei «Build Variable» setzen.
+- **Geheimnisse** (Token, Passwort, iCal-Adressen, Bring!-Zugang, ntfy-Thema, Gäste-WLAN-Passwort) stehen nur in Coolify bzw. in `config.json` auf dem Kindle – nie im Repository und nie in Logs. In Coolify bei diesen Variablen **keinen** Haken bei «Build Variable» setzen.
 - **Transport:** HTTPS mit Let's Encrypt, HSTS; der Kindle prüft Zertifikate mit eigener CA-Liste und mindestens TLS 1.2.
 - **Server:** Container ohne root-Rechte; Taps werden geprüft; gerenderte Seiten haben keinen Netzzugriff; Sicherheitsheader und für die Vorschau eine strenge Content-Security-Policy, kein Caching.
 - **Kindle verloren?** In Coolify ein neues `DEVICE_TOKEN` setzen – das alte ist sofort wertlos.

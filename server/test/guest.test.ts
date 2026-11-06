@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { guestActive, hideEntries, isVisit, toggleGuest } from '../src/guest.js';
+import { guestActive, hideEntries, isVisit, toggleGuest, visitorName, visitorNames } from '../src/guest.js';
 import type { CalendarEvent, DayEntry } from '../src/sources/calendar.js';
 
 const at = (hhmm: string) => new Date(`2026-11-05T${hhmm}:00+01:00`);
@@ -64,5 +64,23 @@ describe('hideEntries', () => {
     expect(out[1]!.hidden).toBeUndefined();
     expect(out[2]).toMatchObject({ title: 'Papier' });
     expect(out[2]!.hidden).toBeUndefined();
+  });
+});
+
+describe('visitor names', () => {
+  it('takes everything after «Besuch», without separators or «von»/«bei»', () => {
+    expect(['Besuch Müllers', 'besuch: Familie Meier', 'Besuch – Oma', 'Besuch von Anna', 'Besuch bei Lena', 'Besuch'].map(visitorName)).toEqual([
+      'Müllers',
+      'Familie Meier',
+      'Oma',
+      'Anna',
+      'Lena',
+      '',
+    ]);
+  });
+
+  it('lists the running visits once each, ignoring other events', () => {
+    const events = [ev('Besuch Müllers', '18:00', '23:00'), ev('Besuch Müllers', '19:00', '22:00'), ev('Besuch Oma', '20:00', '21:00'), ev('Besuch Anna', '21:00', '22:00'), ev('Zahnarzt', '18:00', '22:00'), ev('Besuch', '18:00', '22:00')];
+    expect(visitorNames(events, at('20:30'))).toEqual(['Müllers', 'Oma']);
   });
 });
