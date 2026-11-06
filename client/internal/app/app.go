@@ -15,6 +15,10 @@ import (
 // UnauthorizedRetry is how long the client waits after a 401 before asking again.
 const UnauthorizedRetry = 10 * time.Minute
 
+// WifiOffFrom is the shortest wait until the next fetch for which the WLAN is turned off in
+// between: in the quiet hours the server asks for the next screen hours later.
+const WifiOffFrom = 15 * time.Minute
+
 // Point is a tap position in screen pixels; Hold marks a long press.
 type Point struct {
 	X, Y int
@@ -35,6 +39,8 @@ type Display interface {
 // Network is implemented by *wifi.Ensurer.
 type Network interface {
 	EnsureConnected(ctx context.Context) error
+	Off() error
+	On() error
 }
 
 // Overlay draws a status label onto an image (overlay.Draw).
@@ -66,6 +72,7 @@ type App struct {
 	statusText   string // label currently drawn over lastPNG ("" = none)
 	failures     int
 	offlineSince time.Time
+	wifiOff      bool // turned off until the next fetch or tap
 }
 
 // New wires an App. now and loc control the "offline seit HH:MM" label.
@@ -75,14 +82,52 @@ func New(a API, d Display, n Network, o Overlay, now func() time.Time, loc *time
 
 // Refresh fetches the active view and returns the delay until the next fetch.
 func (a *App) Refresh(ctx context.Context) time.Duration {
-	if err := a.network.EnsureConnected(ctx); err != nil {
-		if ctx.Err() != nil {
-			return 0
-		}
-		a.log.Printf("wifi: %v", err)
+	if !a.connect(ctx) {
+		return 0
 	}
 	s, err := a.api.Screen(ctx)
 	return a.handle(ctx, s, err)
+}
+
+// connect makes sure the WLAN is up; false means ctx ended meanwhile.
+func (a *App) connect(ctx context.Context) bool {
+	err := a.network.EnsureConnected(ctx)
+	if err != nil && ctx.Err() != nil {
+		return false
+	}
+	if err != nil {
+		a.log.Printf("wifi: %v", err)
+	}
+	if a.wifiOff {
+		a.log.Print("wifi on")
+		a.wifiOff = false
+	}
+	return true
+}
+
+// sleepWifi turns the WLAN off when the next fetch is far away.
+func (a *App) sleepWifi(wait time.Duration) {
+	if wait < WifiOffFrom || a.wifiOff {
+		return
+	}
+	if err := a.network.Off(); err != nil {
+		a.log.Printf("wifi off: %v", err)
+		return
+	}
+	a.wifiOff = true
+	a.log.Printf("wifi off until %s", a.now().Add(wait).In(a.loc).Format("15:04"))
+}
+
+// RestoreWifi turns the WLAN back on if the dashboard turned it off, for the Kindle UI on exit.
+func (a *App) RestoreWifi() {
+	if !a.wifiOff {
+		return
+	}
+	if err := a.network.On(); err != nil {
+		a.log.Printf("wifi on: %v", err)
+		return
+	}
+	a.wifiOff = false
 }
 
 // HandleTap forwards a tap or long press. It returns 0 when nothing changed (HTTP 204), so the
@@ -93,6 +138,10 @@ func (a *App) HandleTap(ctx context.Context, p Point) time.Duration {
 		kind = "hold"
 	}
 	a.log.Printf("%s x=%d y=%d", kind, p.X, p.Y)
+	// Only after the WLAN was turned off for the night: a check on every tap would slow taps down.
+	if a.wifiOff && !a.connect(ctx) {
+		return 0
+	}
 	s, err := a.api.Tap(ctx, p.X, p.Y, p.Hold)
 	if err == nil && s == nil {
 		return 0
@@ -135,7 +184,9 @@ func (a *App) handle(ctx context.Context, s *api.Screen, err error) time.Duratio
 			a.lastPNG, a.lastETag, a.statusText = s.PNG, s.ETag, ""
 		}
 	}
-	return time.Duration(s.RefreshSeconds) * time.Second
+	wait := time.Duration(s.RefreshSeconds) * time.Second
+	a.sleepWifi(wait)
+	return wait
 }
 
 func (a *App) showStatus(text string) {
@@ -157,6 +208,7 @@ func (a *App) showStatus(text string) {
 // Run fetches immediately, then alternates between timed refreshes and taps until ctx ends.
 // The touch goroutine must call gate.TryAcquire before sending on taps; Run releases it.
 func (a *App) Run(ctx context.Context, taps <-chan Point, gate *Gate) {
+	defer a.RestoreWifi()
 	next := a.after(a.Refresh(ctx))
 	for {
 		select {

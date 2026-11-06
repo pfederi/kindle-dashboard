@@ -58,6 +58,12 @@ func (e *Ensurer) EnsureConnected(ctx context.Context) error {
 	return ErrNotConnected
 }
 
+// Off turns the WLAN off to save power; EnsureConnected turns it on again.
+func (e *Ensurer) Off() error { return e.Radio.SetWireless(false) }
+
+// On turns the WLAN on without waiting for a connection.
+func (e *Ensurer) On() error { return e.Radio.SetWireless(true) }
+
 func (e *Ensurer) connected() bool {
 	s, err := e.Radio.WifiState()
 	return err == nil && s == "CONNECTED"

@@ -67,8 +67,23 @@ func (f *fakeDisplay) ShowImage(png []byte, full bool) error {
 type fakeNet struct{ err error }
 
 func (f fakeNet) EnsureConnected(context.Context) error { return f.err }
+func (fakeNet) Off() error                              { return nil }
+func (fakeNet) On() error                               { return nil }
+
+// recNet records the WLAN switching.
+type recNet struct{ calls []string }
+
+func (r *recNet) EnsureConnected(context.Context) error {
+	r.calls = append(r.calls, "ensure")
+	return nil
+}
+func (r *recNet) Off() error { r.calls = append(r.calls, "off"); return nil }
+func (r *recNet) On() error  { r.calls = append(r.calls, "on"); return nil }
 
 type blockingNet struct{}
+
+func (blockingNet) Off() error { return nil }
+func (blockingNet) On() error  { return nil }
 
 func (blockingNet) EnsureConnected(ctx context.Context) error {
 	<-ctx.Done()
@@ -489,5 +504,57 @@ func TestFirstImageOfSessionIsFullRefresh(t *testing.T) {
 	want := []shown{{"A", true}, {"B", false}}
 	if len(d.shown) != 2 || d.shown[0] != want[0] || d.shown[1] != want[1] {
 		t.Fatalf("shown = %+v, want %+v", d.shown, want)
+	}
+}
+
+func TestWifiOffWhileTheNextFetchIsFarAway(t *testing.T) {
+	now := time.Date(2026, 11, 3, 23, 0, 0, 0, time.UTC) // 00:00 in Zurich
+	night := 5*3600 + 30*60
+	f := &fakeAPI{
+		screens: []result{screen("A", `"1"`, 120, false), screen("N", `"2"`, night, false), screen("M", `"3"`, 120, false)},
+		taps:    []result{screen("W", `"4"`, 120, false), screen("N", `"2"`, night, false)},
+	}
+	n := &recNet{}
+	var logs bytes.Buffer
+	a := New(f, &fakeDisplay{}, n, fakeOverlay, func() time.Time { return now }, zurich, log.New(&logs, "", 0))
+	ctx := context.Background()
+	a.Refresh(ctx)                      // day: stays on
+	a.Refresh(ctx)                      // night screen: off
+	a.HandleTap(ctx, Point{X: 1, Y: 1}) // tap at night: on again, view with a short refresh
+	a.HandleTap(ctx, Point{X: 1, Y: 1}) // back to the night screen: off
+	a.Refresh(ctx)                      // morning: on
+	want := []string{"ensure", "ensure", "off", "ensure", "off", "ensure"}
+	if strings.Join(n.calls, " ") != strings.Join(want, " ") {
+		t.Fatalf("calls = %v, want %v", n.calls, want)
+	}
+	if !strings.Contains(logs.String(), "wifi off until 05:30") {
+		t.Fatalf("logs = %q", logs.String())
+	}
+}
+
+func TestTapsDoNotCheckTheWifiDuringTheDay(t *testing.T) {
+	now := time.Now()
+	f := &fakeAPI{taps: []result{screen("A", `"1"`, 120, false)}}
+	n := &recNet{}
+	a := New(f, &fakeDisplay{}, n, fakeOverlay, func() time.Time { return now }, zurich, log.New(io.Discard, "", 0))
+	a.HandleTap(context.Background(), Point{X: 1, Y: 1})
+	if len(n.calls) != 0 {
+		t.Fatalf("calls = %v", n.calls)
+	}
+}
+
+func TestRunTurnsTheWifiBackOnOnExit(t *testing.T) {
+	now := time.Now()
+	f := &fakeAPI{screens: []result{screen("N", `"1"`, 3600, false)}}
+	n := &recNet{}
+	a := New(f, &fakeDisplay{}, n, fakeOverlay, func() time.Time { return now }, zurich, log.New(io.Discard, "", 0))
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.Run(ctx, make(chan Point), &Gate{}); close(done) }()
+	time.Sleep(20 * time.Millisecond)
+	cancel()
+	waitDone(t, done)
+	if strings.Join(n.calls, " ") != "ensure off on" {
+		t.Fatalf("calls = %v", n.calls)
 	}
 }

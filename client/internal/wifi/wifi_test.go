@@ -36,6 +36,16 @@ func ensurer(r *fakeRadio) (*Ensurer, *time.Duration) {
 	return &Ensurer{Radio: r, Sleep: func(_ context.Context, d time.Duration) error { slept += d; return nil }, Poll: time.Second, Timeout: 45 * time.Second}, &slept
 }
 
+func TestOffAndOn(t *testing.T) {
+	r := &fakeRadio{states: []string{"CONNECTED"}}
+	e, _ := ensurer(r)
+	e.Off()
+	e.On()
+	if !reflect.DeepEqual(r.calls, []string{"off", "on"}) {
+		t.Fatalf("calls=%v", r.calls)
+	}
+}
+
 func TestAlreadyConnectedDoesNothing(t *testing.T) {
 	r := &fakeRadio{states: []string{"CONNECTED"}}
 	e, _ := ensurer(r)

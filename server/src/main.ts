@@ -4,7 +4,7 @@ import { systemClock } from './clock.js';
 import { loadConfig } from './config.js';
 import { Dashboard } from './dashboard.js';
 import { startOfWeek } from './format.js';
-import { BatteryMonitor, KindleMonitor, ntfySender } from './monitor.js';
+import { type Battery, BatteryMonitor, KindleMonitor, ntfySender } from './monitor.js';
 import { refreshSeconds } from './state.js';
 import { PlaywrightRenderer } from './render/renderer.js';
 import { closeAll } from './shutdown.js';
@@ -74,12 +74,21 @@ async function main(): Promise<void> {
     onDelivered: monitor ? (seconds) => void monitor.seen(seconds) : undefined,
   });
 
+  // Every change of the level, so the log shows how fast the battery drains (Coolify adds the time).
+  let lastBattery = '';
+  const logBattery = (b: Battery) => {
+    const line = `[battery] ${b.level} %${b.charging ? ' lädt' : ''}`;
+    if (line !== lastBattery) console.log(line);
+    lastBattery = line;
+  };
+
   const app = buildApp({
     dashboard,
     deviceToken: config.deviceToken,
     previewPassword: config.previewPassword,
     stations: config.stations.map((s) => s.name),
     onBattery: (b) => {
+      logBattery(b);
       dashboard.reportBattery(b);
       void batteryMonitor?.report(b);
     },
