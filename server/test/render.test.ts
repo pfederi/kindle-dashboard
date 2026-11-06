@@ -10,7 +10,7 @@ import { nachtHtml } from '../src/views/nacht.js';
 import { TASK_SUGGESTIONS } from '../src/sources/bring/source.js';
 import { wetterHtml } from '../src/views/wetter.js';
 import { wocheHtml } from '../src/views/woche.js';
-import { willkommenHtml } from '../src/views/willkommen.js';
+import { wifiPayload } from '../src/views/qr.js';
 import jsQR from 'jsqr';
 import { dryWeather, entry, fullBoards, heuteModel, NOW } from './fixtures/models.js';
 
@@ -205,18 +205,25 @@ describe('PlaywrightRenderer', () => {
     expect(list.x + list.w).toBeLessThanOrEqual(add.x); // side by side, no overlap
   });
 
-  it('the welcome screen QR code reads back from the Kindle image, with long names and an umlaut in the SSID', async () => {
-    for (const [guests, wifi, payload] of [
-      [['Müllers'], { ssid: 'Gast-Netz', password: 'sonnenblume42' }, 'WIFI:T:WPA;S:Gast-Netz;P:sonnenblume42;;'],
-      [['Familie Meier-Schneider', 'Grossmami'], { ssid: 'Gäste;WLAN', password: 'a:b,c"d\\e123' }, 'WIFI:T:WPA;S:Gäste\\;WLAN;P:a\\:b\\,c\\"d\\\\e123;;'],
-      [[], { ssid: 'Offen', password: '' }, 'WIFI:T:nopass;S:Offen;;'],
-    ] as const) {
-      const html = willkommenHtml({ guests: [...guests], wifi });
-      const { png } = await renderer.render(html);
-      const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-      expect(jsQR(new Uint8ClampedArray(data), info.width, info.height)?.data).toBe(payload);
-      const b = await boxes(html, ['.wifi', '.tabs']);
-      expect(b['.wifi']!.bottom).toBeLessThanOrEqual(b['.tabs']!.top);
+  it('the welcome QR code fits the smallest agenda and reads back from the Kindle image', async () => {
+    const full = { ...heuteModel(), boards: fullBoards() }; // rain strip and four departures per stop: smallest agenda
+    const cases: [string[], string][] = [
+      [['Müllers'], wifiPayload({ ssid: 'Gast-Netz', password: 'sonnenblume42' })],
+      [['Familie Meier-Schneider', 'Grossmami'], wifiPayload({ ssid: 'Gäste;WLAN', password: 'a:b,c"d\\e123' })],
+      [[], wifiPayload({ ssid: 'Offen', password: '' })],
+    ];
+    expect(cases[1]![1]).toBe('WIFI:T:WPA;S:Gäste\\;WLAN;P:a\\:b\\,c\\"d\\\\e123;;');
+    for (const [guests, wifi] of cases) {
+      for (const model of [full, { ...full, evening: true }]) {
+        const html = heuteHtml({ ...model, guest: true, welcome: { guests, wifi } });
+        const { png } = await renderer.render(html);
+        const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+        expect(jsQR(new Uint8ClampedArray(data), info.width, info.height)?.data).toBe(wifi);
+        const b = await boxes(html, ['.agenda', '.welcome .qr', '.welcome .hello']);
+        expect(b['.welcome .qr']!.bottom).toBeLessThanOrEqual(b['.agenda']!.bottom);
+        expect(b['.welcome .qr']!.top).toBeGreaterThanOrEqual(b['.agenda']!.top);
+        expect(b['.welcome .hello']!.bottom).toBeLessThanOrEqual(b['.agenda']!.bottom);
+      }
     }
   });
 

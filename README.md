@@ -45,7 +45,7 @@ Verspätungen ab 5 Minuten werden schwarz hinterlegt. Abfahrten, die man zu Fuss
 
 **Gast-Modus:** Wenn Besuch da ist, sind alle Termintitel schwarz überdeckt; Uhrzeit, Kalenderkürzel und Papier-/Kartonsammlung bleiben stehen, ein Schloss neben dem Titel zeigt den Modus an. Er schaltet sich selbst ein, solange ein Termin läuft, dessen Titel mit «Besuch» beginnt (z. B. «Besuch Müllers» 18–23 Uhr) – dieser Termin selbst bleibt lesbar. Von Hand: siehe [Bedienung](#bedienung).
 
-**Begrüssung mit Gäste-WLAN:** Sind `GUEST_WIFI_SSID` (und `GUEST_WIFI_PASSWORD`) gesetzt, zeigt «Heute» im Gast-Modus stattdessen gross «Herzlich willkommen Müllers!» – der Name ist alles, was im Termin nach «Besuch» steht (auch «Besuch: …», «Besuch von …») – und darunter einen QR-Code fürs Gäste-WLAN mit Netzname und Passwort. Mit dem Handy scannen, verbunden. «Woche» und «Einkauf» bleiben über die Tabs erreichbar, in der Nachtruhe gilt der Nachtbildschirm. Ein Langdruck auf die Begrüssung beendet den Gast-Modus.
+**Begrüssung mit Gäste-WLAN:** Sind `GUEST_WIFI_SSID` (und `GUEST_WIFI_PASSWORD`) gesetzt, stehen in «Heute» im Gast-Modus statt der Termine «Herzlich willkommen Müllers!» und daneben ein QR-Code fürs Gäste-WLAN – der Name ist alles, was im Termin nach «Besuch» steht (auch «Besuch: …», «Besuch von …»). Netzname und Passwort stehen nicht als Text da; mit dem Handy scannen, verbunden. Wetter, Abfahrten und Einkaufsliste bleiben, «Woche» bleibt geschwärzt, in der Nachtruhe gilt der Nachtbildschirm. Ein Langdruck auf die Begrüssung beendet den Gast-Modus.
 
 **Geburtstage** (`BIRTHDAYS`) grüsst «Heute» den ganzen Tag gross über den Terminen mit «Happy Birthday …!» und einem Kuchen, ebenso der Nachtbildschirm, wenn er diesen Tag zeigt (mit der Standard-Nachtruhe also von 00:00 bis 05:30 am Geburtstag).
 
@@ -102,7 +102,7 @@ Der Server läuft als Docker-Container, z. B. in [Coolify](https://coolify.io).
 | `BIRTHDAYS` | | Geburtstage als JSON, Datum `MM-TT`: `[{"name":"Anna","date":"12-01"}]`. Am Tag steht in «Heute» und auf dem Nachtbildschirm gross «Happy Birthday Anna!» mit Kuchen. Standard: keine |
 | `WEATHER_LAT`, `WEATHER_LON` | | Ort für Wetter, Standard Zürich-Oerlikon (`47.411`, `8.544`) |
 | `WASTE_ZIP` | | Postleitzahl für Papier- und Kartonsammlung der Stadt Zürich, Standard `8050`; leer = aus |
-| `GUEST_WIFI_SSID`, `GUEST_WIFI_PASSWORD` | | Gäste-WLAN für die Begrüssung im Gast-Modus; ohne Passwort = offenes Netz. Ohne `GUEST_WIFI_SSID` bleibt der Gast-Modus wie bisher (geschwärzte Titel). Das Passwort nur in Coolify eintragen. |
+| `GUEST_WIFI_SSID`, `GUEST_WIFI_PASSWORD` | | Gäste-WLAN als QR-Code in der Begrüssung im Gast-Modus; ohne Passwort = offenes Netz. Ohne `GUEST_WIFI_SSID` bleibt der Gast-Modus wie bisher (geschwärzte Titel). Das Passwort nur in Coolify eintragen. |
 | `QUIET_HOURS` | | Nachtruhe mit Nachtbildschirm, ohne Aktualisierung und mit ausgeschaltetem WLAN (spart Akku), Standard `00:00-05:30`, über Mitternacht möglich (z. B. `22:30-06:00`); leer = aus |
 | `NTFY_TOPIC` | | Push-Benachrichtigung über [ntfy](https://ntfy.sh), wenn der Kindle sich nicht mehr meldet oder der Akku fast leer ist: ein schwer erratbarer Name, z. B. `kindle-` + 12 zufällige Zeichen |
 | `NTFY_SERVER` | | ntfy-Server, Standard `https://ntfy.sh` |

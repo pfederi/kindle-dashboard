@@ -4,9 +4,10 @@ import type { ShoppingData, ShoppingItem } from '../sources/bring/source.js';
 import { describeWmo } from '../sources/wmo.js';
 import { LATE_MIN, leaveAt, reachable } from '../sources/transit.js';
 import { firstRainHour, type HourlyRain, nextHours, rainStartHour, type Weather } from '../sources/weather.js';
-import { AddTaskButton, BatteryMark, BIRTHDAY_ROWS, BirthdayBanner, EventList, GuestMark, Icon, LineBadge, TASK_ROWS, Tabs, TaskBox } from './components.js';
+import { AddTaskButton, BatteryMark, BIRTHDAY_ROWS, BirthdayBanner, EventList, GuestMark, Icon, LineBadge, names, TASK_ROWS, Tabs, TaskBox } from './components.js';
 import type { BoardModel, HeuteModel } from './model.js';
 import { page } from './page.js';
+import { qrSvg } from './qr.js';
 
 /** Rows that fit next to the rain strip, four departures per stop and their leave-by line (render test). */
 export const MAX_EVENTS_HEUTE = 4;
@@ -262,6 +263,29 @@ function EveningAgenda({ m }: { m: HeuteModel }) {
   );
 }
 
+/** QR code size on the device: fits the smallest agenda (rain strip, four departures, evening). */
+export const WELCOME_QR_PX = 150;
+
+/** Guest mode with a guest WLAN: greeting and QR code where the events are; network and password are not printed. */
+function Welcome({ guests, wifi }: { guests: string[]; wifi: string }) {
+  return (
+    <div class="welcome">
+      <div class="hello serif">
+        Herzlich willkommen
+        {guests.length > 0 ? (
+          <>
+            <br />
+            {names(guests)}!
+          </>
+        ) : (
+          '!'
+        )}
+      </div>
+      <div class="qr" dangerouslySetInnerHTML={{ __html: qrSvg(wifi, WELCOME_QR_PX) }} />
+    </div>
+  );
+}
+
 function Heute({ m }: { m: HeuteModel }) {
   return (
     <div class="screen view-heute">
@@ -277,9 +301,15 @@ function Heute({ m }: { m: HeuteModel }) {
         <WeatherBlock weather={m.weather} lakeTemp={m.lakeTemp ?? null} now={m.now} evening={m.evening ?? false} />
         <div class="rule" />
         <div class={m.evening ? 'agenda evening' : 'agenda'} data-action="nav:woche" data-hold="guest">
-          {m.birthdays && m.birthdays.length > 0 && <BirthdayBanner birthdays={m.birthdays} compact={m.evening} />}
-          {m.tasks && <TaskBox tasks={m.tasks} />}
-          {m.evening ? (
+          {m.welcome ? (
+            <Welcome guests={m.welcome.guests} wifi={m.welcome.wifi} />
+          ) : (
+            <>
+              {m.birthdays && m.birthdays.length > 0 && <BirthdayBanner birthdays={m.birthdays} compact={m.evening} />}
+              {m.tasks && <TaskBox tasks={m.tasks} />}
+            </>
+          )}
+          {m.welcome ? null : m.evening ? (
             <EveningAgenda m={m} />
           ) : (
             <>

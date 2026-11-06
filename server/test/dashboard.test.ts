@@ -548,20 +548,23 @@ describe('Dashboard', () => {
       expect(renderer.lastHtml).not.toContain('class="guest"');
     });
 
-    describe('welcome screen (GUEST_WIFI_SSID set)', () => {
+    describe('welcome in the agenda (GUEST_WIFI_SSID set)', () => {
       const guestWifi = { ssid: 'Gast-Netz', password: 'sonnenblume42' };
 
-      it('replaces Heute during a visit with a greeting of the visitors and the WLAN, and returns afterwards', async () => {
+      it('greets the visitors with the WLAN QR code instead of the events, without printing network or password', async () => {
         const { dash, renderer, src, clock } = setup({}, { guestWifi });
         src.calendar.events = vi.fn(async () => [event('Besuch Müllers', '07:00', '08:00'), event('Besuch: Oma', '07:30', '09:00'), event('Zahnarzt', '07:30', '08:30')]);
         await dash.screen();
-        expect(renderer.lastHtml).toContain('view-willkommen');
+        expect(renderer.lastHtml).toContain('view-heute');
         expect(renderer.lastHtml).toContain('Müllers &amp; Oma!');
-        expect(renderer.lastHtml).toContain('Gast-Netz');
+        expect(renderer.lastHtml).toContain('class="qr"');
+        expect(renderer.lastHtml).not.toContain('Gast-Netz');
+        expect(renderer.lastHtml).not.toContain('sonnenblume42');
         expect(renderer.lastHtml).not.toContain('Zahnarzt');
+        expect(renderer.lastHtml).toContain('class="tabs"'); // the rest of Heute stays
         clock.set('2026-11-03T09:00:00+01:00');
         await dash.screen();
-        expect(renderer.lastHtml).toContain('view-heute');
+        expect(renderer.lastHtml).not.toContain('class="welcome"');
       });
 
       it('greets without names when switched on by hand, and a long press on it switches back', async () => {
@@ -574,7 +577,7 @@ describe('Dashboard', () => {
         expect(renderer.lastHtml).toContain('Zahnarzt');
       });
 
-      it('keeps Woche blacked out, shows the night screen in the quiet hours, and previews it with gast=1', async () => {
+      it('keeps Woche blacked out, the night screen in the quiet hours, and previews it with gast=1', async () => {
         const { dash, renderer, src, tapAction, clock } = setup({}, { guestWifi, quietHours: { start: 0, end: 330 } });
         src.calendar.events = vi.fn(async () => [event('Besuch Müllers', '00:00', '23:59'), event('Zahnarzt', '09:00', '10:00')]);
         await dash.screen();
@@ -584,14 +587,15 @@ describe('Dashboard', () => {
         await tapAction('nav:heute');
         expect(renderer.lastHtml).toContain('view-nacht');
         src.calendar.events = vi.fn(async () => []);
-        expect(await dash.previewHtml('heute', { guest: true })).toContain('view-willkommen');
+        clock.set('2026-11-03T07:40:00+01:00');
+        expect(await dash.previewHtml('heute', { guest: true })).toContain('class="welcome"');
       });
 
-      it('without GUEST_WIFI_SSID Heute stays as it was', async () => {
+      it('without GUEST_WIFI_SSID guest mode blacks out the titles as before', async () => {
         const { dash, renderer, src } = setup();
         src.calendar.events = vi.fn(async () => [event('Besuch Müllers', '07:00', '08:00')]);
         await dash.screen();
-        expect(renderer.lastHtml).toContain('view-heute');
+        expect(renderer.lastHtml).not.toContain('class="welcome"');
       });
     });
 

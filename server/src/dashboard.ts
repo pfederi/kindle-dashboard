@@ -30,7 +30,7 @@ import { hinzufuegenHtml } from './views/hinzufuegen.js';
 import { nachtHtml } from './views/nacht.js';
 import { stationHtml } from './views/station.js';
 import { wetterHtml } from './views/wetter.js';
-import { willkommenHtml } from './views/willkommen.js';
+import { wifiPayload } from './views/qr.js';
 import { wocheHtml } from './views/woche.js';
 import { hitTest } from './zones.js';
 
@@ -63,7 +63,7 @@ export interface DashboardOptions {
   viewResetSeconds: number;
   /** Greeted on Heute and the night screen on their day. */
   birthdays?: BirthdayConfig[];
-  /** Guest WLAN: during a visit Heute becomes a welcome screen with its QR code. */
+  /** Guest WLAN: during a visit the events in Heute give way to a greeting and its QR code. */
   guestWifi?: GuestWifi | null;
   /** Called with the refresh interval of every screen delivered to the Kindle (not for previews). */
   onDelivered?: (refreshSeconds: number) => void;
@@ -258,9 +258,10 @@ export class Dashboard {
    * Entries as shown: in guest mode the titles are withheld. Never forces a reload: it runs next to
    * the view's own (possibly forced) calendar query and joins that load instead of starting another.
    */
-  private async guestFilter(now: Date, ctx?: RenderContext): Promise<{ guest: boolean; show: (e: DayEntry[]) => DayEntry[] }> {
-    const guest = ctx?.guest || guestActive((await this.opts.sources.calendar.events(now, new Date(now.getTime() + 1))) ?? [], now, this.state.guest);
-    return { guest, show: guest ? hideEntries : (e) => e };
+  private async guestFilter(now: Date, ctx?: RenderContext): Promise<{ guest: boolean; show: (e: DayEntry[]) => DayEntry[]; visitors: string[] }> {
+    const running = (await this.opts.sources.calendar.events(now, new Date(now.getTime() + 1))) ?? [];
+    const guest = ctx?.guest || guestActive(running, now, this.state.guest);
+    return { guest, show: guest ? hideEntries : (e) => e, visitors: visitorNames(running, now) };
   }
 
   /** The list «Hinzufügen» writes to. */
@@ -375,16 +376,10 @@ export class Dashboard {
     switch (view) {
       case 'heute': {
         if (isQuiet(now, this.opts.quietHours)) return this.nachtHtmlFor(now, force, ctx);
-        const wifi = this.opts.guestWifi;
-        if (wifi) {
-          // Not forced: the check joins a running calendar load instead of starting another.
-          const running = (await calendar.events(now, new Date(now.getTime() + 1))) ?? [];
-          if (ctx?.guest || guestActive(running, now, this.state.guest)) return willkommenHtml({ guests: visitorNames(running, now), wifi });
-        }
         const day = startOfDay(now);
         const evening = now.getHours() >= EVENING_HOUR;
         const tomorrow = addDays(day, 1);
-        const [w, lakeTemp, events, boards, shopping, pickups, { guest, show }, taskList] = await Promise.all([
+        const [w, lakeTemp, events, boards, shopping, pickups, { guest, show, visitors }, taskList] = await Promise.all([
           weather.get(force),
           lake ? lake.get(force) : null,
           calendar.events(day, addDays(day, evening ? 2 : 1), force),
@@ -403,9 +398,11 @@ export class Dashboard {
               tomorrow: events ? show([...pickupEntries(pickups ?? [], tomorrow), ...entriesForDay(events, tomorrow, now)]) : null,
             }
           : { evening, events: events ? show([...collections, ...entriesForDay(events, now, now)]) : null };
+        const wifi = this.opts.guestWifi;
         return heuteHtml({
           now,
           guest,
+          welcome: guest && wifi ? { guests: visitors, wifi: wifiPayload(wifi) } : undefined,
           battery: this.lowBattery(ctx),
           birthdays: birthdaysOn(this.opts.birthdays ?? [], now),
           // Bring! lists items in the order they were added: «Dringend» first, then the newest, for the box.

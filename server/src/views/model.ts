@@ -35,6 +35,8 @@ export interface HeuteModel {
   birthdays?: string[];
   /** Battery level in percent when low (not charging); shown in the header. */
   battery?: number | null;
+  /** In guest mode with a guest WLAN: a greeting and the WLAN QR code instead of the events. */
+  welcome?: { guests: string[]; wifi: string };
   /** Open tasks, newest first; null = list unavailable; absent = no task list configured. */
   tasks?: TaskItem[] | null;
   boards: BoardModel[];
