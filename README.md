@@ -126,7 +126,7 @@ Der Server läuft als Docker-Container, z. B. in [Coolify](https://coolify.io).
 
 Der Server kennt nach jedem Bild den Zeitpunkt der nächsten Abfrage (in der Nachtruhe Stunden später). Bleibt sie länger als `OFFLINE_ALERT_MINUTES` aus, kommt «Kindle meldet sich nicht», nach der Rückkehr «Kindle wieder online».
 
-Der Kindle schickt bei jeder Abfrage seinen Ladestand mit. Sinkt er auf 20 % oder weniger, ohne dass er lädt, kommt einmal «Kindle-Akku fast leer»; erneut erst, nachdem er geladen hat (oder wieder über 25 % liegt). Das braucht den Kindle-Client ab 2026-11-06.
+Der Kindle schickt bei jeder Abfrage seinen Ladestand mit. Sinkt er auf 20 % oder weniger, ohne dass er lädt, kommt einmal «Kindle-Akku fast leer», bei 5 % dringend «Kindle-Akku: JETZT LADEN»; beides erneut erst, nachdem er geladen hat (oder wieder über 25 % liegt). Das braucht den Kindle-Client ab 2026-11-06.
 
 ### Prüfen
 

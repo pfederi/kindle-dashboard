@@ -87,6 +87,20 @@ describe('BatteryMonitor', () => {
     expect(sent).toHaveLength(3);
   });
 
+  it('alerts urgently once more at 5 %, also when the battery was already at 20 % or below', async () => {
+    const sent: Notice[] = [];
+    const m = new BatteryMonitor(async (n) => void sent.push(n));
+    for (const level of [20, 12, 6, 5, 4, 6, 3]) await m.report({ level, charging: false });
+    expect(sent.map((n) => [n.title, n.priority])).toEqual([
+      ['Kindle-Akku fast leer', 'high'],
+      ['Kindle-Akku: JETZT LADEN', 'urgent'],
+    ]);
+    expect(sent[1]!.message).toContain('5 %');
+    await m.report({ level: 4, charging: true });
+    await m.report({ level: 4, charging: false });
+    expect(sent.map((n) => n.title).slice(2)).toEqual(['Kindle-Akku: JETZT LADEN']); // re-armed by charging; already critical, so no «fast leer»
+  });
+
   it('stays quiet while charging, even when low', async () => {
     const sent: Notice[] = [];
     await new BatteryMonitor(async (n) => void sent.push(n)).report({ level: 5, charging: true });

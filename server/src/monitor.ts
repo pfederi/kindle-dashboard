@@ -8,7 +8,8 @@ export interface Notice {
   title: string;
   message: string;
   tags: string;
-  priority: 'default' | 'high';
+  /** ntfy priority; `urgent` makes the phone ring through Do Not Disturb where allowed. */
+  priority: 'default' | 'high' | 'urgent';
 }
 
 /** Sends a push notification to an ntfy topic; failures are logged, never thrown. */
@@ -82,6 +83,8 @@ export interface Battery {
 
 /** From this level (and not charging) the dashboard shows the battery and sends a push notification. */
 export const BATTERY_LOW = 20;
+/** From this level the second, urgent alert: charge now. */
+export const BATTERY_CRITICAL = 5;
 /** The alert re-arms above this level or on charging, so a level wavering around 20 % alerts only once. */
 export const BATTERY_REARM = 25;
 
@@ -89,19 +92,32 @@ export function batteryLow(b: Battery | null): b is Battery {
   return b !== null && !b.charging && b.level <= BATTERY_LOW;
 }
 
-/** Alerts once when the battery runs low, and again only after it has been charged. */
+/**
+ * Alerts once when the battery runs low and once more, urgently, at BATTERY_CRITICAL; both again only
+ * after it has been charged. A first report already at the critical level sends only the urgent one.
+ */
 export class BatteryMonitor {
-  private alerted = false;
+  private alerted: 'none' | 'low' | 'critical' = 'none';
 
   constructor(private readonly notify: (n: Notice) => Promise<void>) {}
 
   report(b: Battery): Promise<void> | undefined {
     if (b.charging || b.level > BATTERY_REARM) {
-      this.alerted = false;
+      this.alerted = 'none';
       return undefined;
     }
-    if (this.alerted || !batteryLow(b)) return undefined;
-    this.alerted = true;
+    if (!batteryLow(b) || this.alerted === 'critical') return undefined;
+    if (b.level <= BATTERY_CRITICAL) {
+      this.alerted = 'critical';
+      return this.notify({
+        title: 'Kindle-Akku: JETZT LADEN',
+        message: `Der Akku des Dashboards ist bei ${b.level} %. Jetzt das Netzteil anschliessen, sonst schaltet der Kindle ab.`,
+        tags: 'rotating_light',
+        priority: 'urgent',
+      });
+    }
+    if (this.alerted === 'low') return undefined;
+    this.alerted = 'low';
     return this.notify({
       title: 'Kindle-Akku fast leer',
       message: `Der Akku des Dashboards ist bei ${b.level} %. Bitte das Netzteil anschliessen.`,
