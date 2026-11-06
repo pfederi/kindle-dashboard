@@ -218,13 +218,13 @@ Aktualisierungsintervalle der Zwischenspeicher:
 | Paket | Verantwortung |
 |---|---|
 | `cmd/dashboard` | Start, Übernahme und Rückgabe der Oberfläche, Watchdog, Touch- und Tastenschleifen |
-| `internal/app` | Hauptschleife: abfragen im vom Server vorgegebenen Rhythmus (auch Ruhezeiten), anzeigen, Taps senden, Offline-Status |
-| `internal/api` | HTTP-Client (ETag, Refresh-Header, Token) |
+| `internal/app` | Hauptschleife: abfragen im vom Server vorgegebenen Rhythmus (auch Ruhezeiten), anzeigen, Taps senden, Offline-Status; WLAN aus, solange die nächste Abfrage 15 Min. oder mehr entfernt ist |
+| `internal/api` | HTTP-Client (ETag, Refresh-Header, Token, Ladestand) |
 | `internal/touch`, `internal/input` | Rohereignisse lesen (evdev), skalieren, Tap, Halten (über 1,2 s) und Langdruck-Ecke erkennen |
-| `internal/device` | FBInk, `lipc`, Fenstermanager, Statusleiste, Bildschirminhalt sichern/zurückschreiben |
+| `internal/device` | FBInk, `lipc` (auch Ladestand), Fenstermanager, Statusleiste, Bildschirminhalt sichern/zurückschreiben |
 | `internal/overlay` | Statusanzeige («offline seit …», «Token ungültig») ins Bild zeichnen |
-| `internal/wifi`, `backoff`, `pidfile`, `logx`, `certs`, `config` | WLAN sicherstellen, Wartezeiten, Einzelinstanz, rotierendes Log, Zertifikate, Konfiguration |
-| `kindle/documents/*.sh` | Startskript mit Rückfall-Wiederherstellung; Diagnose- und Systeminfo-Skripte (nur lesend) |
+| `internal/wifi`, `backoff`, `pidfile`, `logx`, `certs`, `config` | WLAN sicherstellen und ausschalten, Wartezeiten, Einzelinstanz, rotierendes Log, Zertifikate, Konfiguration |
+| `kindle/documents/*.sh` | Startskript mit Rückfall-Wiederherstellung; Diagnose- und Systeminfo-Skripte (nur lesend), WLAN-Test |
 
 ---
 
@@ -377,7 +377,8 @@ flowchart LR
 
 - Der Server führt **einen** Gerätezustand: Ansicht, Rückkehr-Tab, Eingabe, Meldung, abgehakter Artikel (für «Rückgängig»), eingefrorene «Oft gekauft»-Kacheln, gewählte Haltestelle, Reiter von «Hinzufügen» (Einkauf/Aufgabe), eben erfasster Artikel (für «🏃 Dringend» in der Meldung), Seite von «Einkauf», Gast-Schalter.
 - Overlays (Hinzufügen, Haltestelle, Wetter) merken sich den Tab, von dem sie geöffnet wurden.
-- Nach 2 Minuten ohne Tap kehrt die Anzeige zu «Heute» zurück; ausserhalb von «Heute» plant der Server die nächste Abfrage genau auf diesen Zeitpunkt. Ab 19 Uhr wechselt «Heute» in den Abendmodus, in der Nachtruhe (Standard 00:00–05:30) in den Nachtbildschirm.
+- Nach 2 Minuten ohne Tap kehrt die Anzeige zu «Heute» zurück; ausserhalb von «Heute» plant der Server die nächste Abfrage genau auf diesen Zeitpunkt. Ab 19 Uhr wechselt «Heute» in den Abendmodus, in der Nachtruhe (Standard 00:00–05:30) in den Nachtbildschirm. Der Kindle schaltet dann das WLAN aus und erst zur nächsten Abfrage oder bei einem Tap wieder ein (etwa 6 s).
+- **Akku:** Der Kindle schickt mit jeder Bildabfrage `X-Battery` und `X-Charging`. Bei 20 % oder weniger ohne Netzteil zeigen «Heute» und der Nachtbildschirm den Ladestand im Kopf; `BatteryMonitor` meldet einmal «fast leer» und bei 5 % dringend «JETZT LADEN», erneut erst nach dem Laden. Jede Änderung des Ladestands steht im Server-Log.
 - Abfahrten berücksichtigen den Fussweg pro Haltestelle (`walk`): nicht mehr erreichbare sind grau, die Losgeh-Zeit steht als Uhrzeit im Spaltenkopf. Als Uhrzeit, weil das Bild bis zu 2 Minuten alt sein kann.
 - **Gast-Modus:** Solange ein Termin läuft, dessen Titel mit «Besuch» beginnt, sind in Heute, Woche und Nachtbildschirm alle Termintitel durch einen gleich breiten schwarzen Balken ersetzt; Uhrzeit, Kalenderkürzel, «Besuch»-Termine und Entsorgung bleiben lesbar, ein Schloss zeigt den Modus an. Die Titel gelangen gar nicht erst ins HTML. Ein Langdruck auf die Termine schaltet von Hand um: ein bis zum Ende der gerade laufenden Termine mit Uhrzeit (ohne laufenden Termin bis zum nächsten Langdruck), während eines Besuchs aus bis zu dessen Ende. Der Schalter liegt nur im Arbeitsspeicher; nach einem Neustart des Servers gilt wieder nur der Kalender.
 - **Geburtstage** (`BIRTHDAYS`, Datum `MM-TT`, nach Zürcher Datum): Banner mit Kuchen über den Terminen in «Heute» (zwei Terminzeilen hoch, im Abendmodus kompakt eine Zeile) und auf dem Nachtbildschirm für den Tag, in den die Nacht führt.
@@ -443,6 +444,8 @@ flowchart LR
 | 21 | **«Dringend» über `ATTRIBUTE_UPDATE` wie die App** | Bring! speichert es als `PURCHASE_CONDITIONS`; vor dem Einbau mit einem Testartikel am echten Konto geprüft (setzen und entfernen) | Hängt an einer undokumentierten Operation; «günstig» und «Aktion» werden mitgeschickt und müssen erhalten bleiben |
 | 22 | **Feste Seiten zu 10 Artikeln** in «Einkauf» statt «+ N weitere» | Alle Artikel erreichbar; Platz für Meldung, «Hinzufügen» und Paginator; keine springenden Kacheln, wenn die Meldung erscheint | Bei kurzer Liste bleibt unten Platz frei |
 | 23 | **Terminzeilen nach dem Regenband** (4 oder 5) statt fest | Ohne Regenband hat der Terminbereich knapp zwei Zeilen mehr Platz | Dieselbe Regel steht in Wetterblock und Terminliste (gemeinsame Funktion `showsRainStrip`) |
+| 24 | **Ladestand per Header** bei jeder Bildabfrage, Anzeige und Push erst ab 20 % | Der Server kennt den Zustand ohne eigenen Kanal; volle Akkus stören das Bild nicht | Älterer Client schickt nichts, dann bleibt die Anzeige aus |
+| 25 | **WLAN in der Nachtruhe aus** statt Ruhezustand (Suspend) | Am Gerät getestet: wieder verbunden nach 6 s; Suspend hätte Touch abgeschaltet und ist mit angehaltener Oberfläche ungetestet | Ein Tap in der Nacht wartet einige Sekunden; der Prozessor bleibt wach |
 
 ---
 
@@ -473,6 +476,7 @@ mindmap
 
 | Szenario | Erwartete Reaktion |
 |---|---|
+| Akku sinkt ohne Netzteil auf 20 % bzw. 5 % | Akku mit Ladestand im Kopf; je eine Push-Nachricht, die zweite dringend |
 | WLAN fällt für eine Stunde aus | Letztes Bild bleibt, «offline seit …» erscheint; nach Rückkehr des Netzes innerhalb von 10 Min. aktuelles Bild |
 | Eine Quelle (z. B. Wetter) antwortet nicht | Letzte Wetterdaten bleiben sichtbar; übrige Inhalte unberührt |
 | Dashboard-Prozess stürzt ab | Startskript gibt die Kindle-Oberfläche zurück; Bibliothek ist bedienbar |

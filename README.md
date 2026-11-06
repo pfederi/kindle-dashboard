@@ -100,7 +100,7 @@ Der Server läuft als Docker-Container, z. B. in [Coolify](https://coolify.io).
 | `BIRTHDAYS` | | Geburtstage als JSON, Datum `MM-TT`: `[{"name":"Anna","date":"12-01"}]`. Am Tag steht in «Heute» und auf dem Nachtbildschirm gross «Happy Birthday Anna!» mit Kuchen. Standard: keine |
 | `WEATHER_LAT`, `WEATHER_LON` | | Ort für Wetter, Standard Zürich-Oerlikon (`47.411`, `8.544`) |
 | `WASTE_ZIP` | | Postleitzahl für Papier- und Kartonsammlung der Stadt Zürich, Standard `8050`; leer = aus |
-| `QUIET_HOURS` | | Nachtruhe mit Nachtbildschirm und ohne Aktualisierung, Standard `00:00-05:30`; leer = aus |
+| `QUIET_HOURS` | | Nachtruhe mit Nachtbildschirm, ohne Aktualisierung und mit ausgeschaltetem WLAN (spart Akku), Standard `00:00-05:30`, über Mitternacht möglich (z. B. `22:30-06:00`); leer = aus |
 | `NTFY_TOPIC` | | Push-Benachrichtigung über [ntfy](https://ntfy.sh), wenn der Kindle sich nicht mehr meldet oder der Akku fast leer ist: ein schwer erratbarer Name, z. B. `kindle-` + 12 zufällige Zeichen |
 | `NTFY_SERVER` | | ntfy-Server, Standard `https://ntfy.sh` |
 | `OFFLINE_ALERT_MINUTES` | | Toleranz nach der erwarteten nächsten Abfrage, Standard `15` |
@@ -156,7 +156,7 @@ make dist    # baut ../dist/kindle/ für ARMv7
 1. Kindle per USB anschliessen.
 2. Kopieren:
    - `dist/kindle/dashboard/` → `Kindle/dashboard/`
-   - `dist/kindle/documents/Dashboard.sh` → `Kindle/documents/` (optional auch `Dashboard-Diagnose.sh`, `Dashboard-Systeminfo.sh`)
+   - `dist/kindle/documents/Dashboard.sh` → `Kindle/documents/` (optional auch `Dashboard-Diagnose.sh`, `Dashboard-Systeminfo.sh`, `Dashboard-WLAN-Test.sh`)
 3. `Kindle/dashboard/config.example.json` nach `config.json` kopieren und anpassen:
 
 ```json
@@ -212,6 +212,7 @@ Während das Dashboard läuft, ist die Kindle-Oberfläche nur angehalten, nicht 
 | Kindle reagiert nicht mehr | Ein/Aus-Taste ca. 15 Sekunden halten: Neustart, danach läuft der Kindle normal. |
 | Touch-Werte prüfen | Skript **Dashboard-Diagnose** in der Bibliothek antippen; Ergebnis in `Kindle/dashboard/diag.txt`. |
 | Systemprotokoll ansehen | Skript **Dashboard-Systeminfo** (nur lesend); Ergebnis in `Kindle/dashboard/sysinfo.txt` und `logs/`. |
+| WLAN in der Nacht prüfen | Skript **Dashboard-WLAN-Test** (Dashboard vorher beenden, etwa 2 Minuten nichts antippen): schaltet das WLAN bei angehaltener Oberfläche 60 s aus und wieder ein; Ergebnis in `Kindle/dashboard/wlan-test.txt`. Im `client.log` stehen nachts «wifi off until 05:30» und am Morgen «wifi on». |
 | Vorschau antwortet mit 429 | Nach 20 falschen Passwörtern ist die Vorschau 15 Minuten gesperrt; abwarten. Der Kindle ist davon nicht betroffen. |
 | Deployment schlägt fehl | Coolify-Log ansehen; bei «Permission denied (publickey)» oder Zeitüberschreitung zu GitHub hilft meist ein erneuter Deploy. |
 
