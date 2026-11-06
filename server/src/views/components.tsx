@@ -61,7 +61,8 @@ export function GuestMark() {
 export function BatteryMark({ level }: { level: number }) {
   return (
     <span class="batt">
-      <Icon name="battery-low" size={40} /> {level} %
+      <Icon name="battery-low" size={40} />
+      <span>{level} %</span>
     </span>
   );
 }
