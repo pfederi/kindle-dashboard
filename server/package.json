@@ -1,0 +1,32 @@
+{
+  "name": "kindle-dashboard-server",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "dev": "TZ=Europe/Zurich tsx watch src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "test": "TZ=Europe/Zurich vitest run",
+    "typecheck": "tsc --noEmit",
+    "screenshots": "TZ=Europe/Zurich tsx scripts/screenshots.ts",
+    "reel": "TZ=Europe/Zurich tsx scripts/reel.ts"
+  },
+  "dependencies": {
+    "@fontsource/inter": "5.3.0",
+    "@fontsource/source-serif-4": "5.3.1",
+    "fastify": "5.12.8",
+    "ical.js": "2.2.1",
+    "lucide-static": "1.67.0",
+    "playwright": "1.64.1",
+    "preact": "11.1.1",
+    "preact-render-to-string": "6.8.2",
+    "sharp": "0.35.5"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
+  }
+}

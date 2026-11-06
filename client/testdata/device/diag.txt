@@ -1,0 +1,59 @@
+== date
+Tue Nov  3 22:32:15 CEST 2026
+Tue Nov  3 21:32:15 UTC 2026
+== uname
+Linux kindle 3.0.35-lab126 #2 PREEMPT Fri Dec 3 04:41:57 UTC 2021 armv7l GNU/Linux
+== osrelease
+3.0.35-lab126
+== id
+uid=0(root) gid=0(root) groups=0(root)
+== fbink
+OK /var/local/kmc/bin/fbink
+OK /mnt/us/libkh/bin/fbink
+== tools
+OK setsid
+OK nohup
+OK awk
+OK lipc-get-prop
+OK lipc-set-prop
+OK stop
+OK start
+OK initctl
+== input devices
+I: Bus=0000 Vendor=0000 Product=0000 Version=0000
+N: Name="max77696-onkey"
+P: Phys=max77696-onkey/input0
+S: Sysfs=/devices/platform/imx-i2c.0/i2c-0/0-003c/max77696-onkey.0/input/input0
+U: Uniq=
+H: Handlers=kbd event0 
+B: PROP=0
+B: EV=3
+B: KEY=100000 0 0 0
+
+I: Bus=0000 Vendor=0000 Product=0000 Version=0000
+N: Name="zforce2"
+P: Phys=zforce2/input0
+S: Sysfs=/devices/platform/zforce2.0/input/input1
+U: Uniq=
+H: Handlers=event1 
+B: PROP=0
+B: EV=b
+B: KEY=6420 0 0 0 0 0 0 0 0 0 0
+B: ABS=2608000 0
+
+== chosen handlers
+touch=event1 power=event0
+== wifi cmState
+CONNECTED
+== upstart
+lab126_gui_setup stop/waiting
+framework_setup stop/waiting
+framework start/running, process 3974
+kmc start/running
+lab126_gui start/running
+lab126_gui_monitor stop/waiting
+== mount /mnt/us
+fsp /mnt/us fuse.fsp rw,nosuid,nodev,noatime,user_id=0,group_id=0,allow_other 0 0
+== capture
+-rwxrwxrwx    1 root     root           256 Nov  3 22:32 /mnt/us/dashboard/power.bin
+-rwxrwxrwx    1 root     root          2560 Nov  3 22:32 /mnt/us/dashboard/touch.bin

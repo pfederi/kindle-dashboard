@@ -1,0 +1,7 @@
+{
+  "serverUrl": "https://kindle.example.ch",
+  "token": "HIER-DEN-DEVICE_TOKEN-AUS-COOLIFY-EINTRAGEN",
+  "touch": { "deviceName": "zforce2", "swapXY": false, "invertX": false, "invertY": false },
+  "powerDeviceName": "max77696-onkey",
+  "powerKeyCode": 116
+}

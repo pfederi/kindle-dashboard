@@ -1,0 +1,12 @@
+.DS_Store
+.superpowers/
+.impeccable/
+node_modules/
+dist/
+__pycache__/
+*.pyc
+
+client/bin/
+
+# Interne Planungsdokumente, nicht öffentlich
+docs/superpowers/

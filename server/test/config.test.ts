@@ -1,0 +1,124 @@
+import { describe, expect, it } from 'vitest';
+import { loadConfig } from '../src/config.js';
+
+const base = { DEVICE_TOKEN: 'tok', PREVIEW_PASSWORD: 'pw' };
+
+describe('loadConfig', () => {
+  it('requires DEVICE_TOKEN and PREVIEW_PASSWORD', () => {
+    expect(() => loadConfig({})).toThrow(/DEVICE_TOKEN, PREVIEW_PASSWORD/);
+  });
+
+  it('applies defaults', () => {
+    const c = loadConfig(base);
+    expect(c.port).toBe(3000);
+    expect(c.weather).toEqual({ lat: 47.411, lon: 8.544 });
+    expect(c.calendars).toEqual([]);
+    expect(c.stations.map((s) => s.name)).toEqual(['Sternen', 'Oerlikon', 'Oerlikon Ost']);
+    expect(c.stations[1]).toEqual({ id: '8503006', name: 'Oerlikon', via: 'Zürich HB', lines: ['S7', 'S16'], walk: 6 });
+    expect(c.stations.map((s) => s.walk)).toEqual([3, 6, 5]);
+    expect(c.bring).toBeNull();
+    expect(c.refreshSeconds).toBe(120);
+    expect(c.quietHours).toEqual({ start: 0, end: 330 }); // 00:00-05:30
+    expect(c.ntfy).toBeNull();
+    expect(c.viewResetSeconds).toBe(120);
+    expect(c.wasteZip).toBe('8050');
+  });
+
+  it('has no birthdays by default, takes BIRTHDAYS and validates it', () => {
+    expect(loadConfig(base).birthdays).toEqual([]);
+    expect(loadConfig({ ...base, BIRTHDAYS: '[{"name":" Lena ","date":"02-29"}]' }).birthdays).toEqual([{ name: 'Lena', date: '02-29' }]);
+    expect(loadConfig({ ...base, BIRTHDAYS: '[]' }).birthdays).toEqual([]);
+    expect(() => loadConfig({ ...base, BIRTHDAYS: '[{"name":"","date":"01-01"}]' })).toThrow('BIRTHDAYS[0].name must be a non-empty string');
+    for (const date of ['1-1', '13-01', '00-10', '04-31', '02-30', '2026-01-01', 5]) {
+      expect(() => loadConfig({ ...base, BIRTHDAYS: JSON.stringify([{ name: 'X', date }]) })).toThrow('BIRTHDAYS[0].date must be a date like 12-01 (MM-DD)');
+    }
+  });
+
+  it('names the task list in Bring!, Aufgaben by default, empty turns it off', () => {
+    const bring = { ...base, BRING_EMAIL: 'a@b.ch', BRING_PASSWORD: 'x' };
+    expect(loadConfig(bring).bring?.tasksList).toBe('Aufgaben');
+    expect(loadConfig({ ...bring, BRING_TASKS_LIST: ' Ämtli ' }).bring?.tasksList).toBe('Ämtli');
+    expect(loadConfig({ ...bring, BRING_TASKS_LIST: '' }).bring?.tasksList).toBe('');
+  });
+
+  it('turns the night off with an empty QUIET_HOURS', () => {
+    expect(loadConfig({ ...base, QUIET_HOURS: '' }).quietHours).toBeNull();
+  });
+
+  it('reads walking minutes per station and validates them', () => {
+    const st = (walk: unknown) => JSON.stringify([{ id: '1', name: 'A', via: 'B', lines: [], walk }]);
+    expect(loadConfig({ ...base, STATIONS: st(3) }).stations[0]!.walk).toBe(3);
+    expect(loadConfig({ ...base, STATIONS: JSON.stringify([{ id: '1', name: 'A', via: 'B', lines: [] }]) }).stations[0]).not.toHaveProperty('walk');
+    expect(() => loadConfig({ ...base, STATIONS: st(-1) })).toThrow(/STATIONS\[0\]\.walk/);
+    expect(() => loadConfig({ ...base, STATIONS: st('5') })).toThrow(/STATIONS\[0\]\.walk/);
+  });
+
+  it('sets up ntfy alerts with a hard-to-guess topic', () => {
+    expect(loadConfig({ ...base, NTFY_TOPIC: 'kindle-x7Gq2pLm9vRt' }).ntfy).toEqual({ server: 'https://ntfy.sh', topic: 'kindle-x7Gq2pLm9vRt', graceMinutes: 15 });
+    expect(loadConfig({ ...base, NTFY_TOPIC: 'kindle-x7Gq2pLm9vRt', NTFY_SERVER: 'https://ntfy.example.ch/', OFFLINE_ALERT_MINUTES: '30' }).ntfy).toEqual({
+      server: 'https://ntfy.example.ch',
+      topic: 'kindle-x7Gq2pLm9vRt',
+      graceMinutes: 30,
+    });
+    expect(() => loadConfig({ ...base, NTFY_TOPIC: 'kindle' })).toThrow(/NTFY_TOPIC/);
+  });
+
+  it('takes WASTE_ZIP, allows turning it off and rejects other values', () => {
+    expect(loadConfig({ ...base, WASTE_ZIP: '8003' }).wasteZip).toBe('8003');
+    expect(loadConfig({ ...base, WASTE_ZIP: '' }).wasteZip).toBe('');
+    expect(() => loadConfig({ ...base, WASTE_ZIP: 'Zürich' })).toThrow(/WASTE_ZIP/);
+  });
+
+  it('parses JSON lists, bring and quiet hours', () => {
+    const c = loadConfig({
+      ...base,
+      PORT: '8080',
+      CALENDARS: '[{"label":"PF","url":"https://example.test/a.ics"}]',
+      STATIONS: '[{"id":"1","name":"A","via":"B","lines":["7"]}]',
+      BRING_EMAIL: 'a@b.ch',
+      BRING_PASSWORD: 'secret',
+      BRING_LIST: 'Zuhause',
+      QUIET_HOURS: '23:00-06:00',
+      REFRESH_SECONDS: '300',
+      VIEW_RESET_SECONDS: '60',
+    });
+    expect(c.port).toBe(8080);
+    expect(c.calendars).toEqual([{ label: 'PF', url: 'https://example.test/a.ics' }]);
+    expect(c.stations).toEqual([{ id: '1', name: 'A', via: 'B', lines: ['7'] }]);
+    expect(c.bring).toEqual({ email: 'a@b.ch', password: 'secret', list: 'Zuhause', locale: 'de-CH', tasksList: 'Aufgaben' });
+    expect(c.quietHours).toEqual({ start: 23 * 60, end: 6 * 60 });
+    expect(c.refreshSeconds).toBe(300);
+    expect(c.viewResetSeconds).toBe(60);
+  });
+
+  it('rejects malformed values without echoing secrets', () => {
+    expect(() => loadConfig({ ...base, CALENDARS: 'not json https://secret' })).toThrow(/^CALENDARS is not valid JSON$/);
+    expect(() => loadConfig({ ...base, QUIET_HOURS: '23-6' })).toThrow(/QUIET_HOURS/);
+    expect(() => loadConfig({ ...base, BRING_EMAIL: 'a@b.ch' })).toThrow(/BRING_PASSWORD/);
+  });
+
+  it('validates CALENDARS entries without echoing the URL', () => {
+    const cal = (v: unknown) => () => loadConfig({ ...base, CALENDARS: JSON.stringify(v) });
+    expect(cal({ label: 'PF', url: 'https://x.test/a.ics' })).toThrow(/^CALENDARS must be a JSON array$/);
+    expect(cal([{ label: 'PF', url: 'calendar.google.com/secret/basic.ics' }])).toThrow(/^CALENDARS\[0\]\.url is not a valid URL$/);
+    expect(cal([{ label: 'PF', url: 'https://x.test/a.ics' }, { label: 'AB', url: 'webcal://x.test/secret' }])).toThrow(
+      /^CALENDARS\[1\]\.url is not a valid URL$/,
+    );
+    expect(cal([{ label: 'PF' }])).toThrow(/^CALENDARS\[0\]\.url is not a valid URL$/);
+    expect(cal([{ label: ' ', url: 'https://x.test/a.ics' }])).toThrow(/^CALENDARS\[0\]\.label must be a non-empty string$/);
+    expect(cal(['https://x.test/a.ics'])).toThrow(/^CALENDARS\[0\] must be an object$/);
+  });
+
+  it('validates STATIONS entries, naming only index and field', () => {
+    const st = (v: unknown) => () => loadConfig({ ...base, STATIONS: JSON.stringify(v) });
+    const ok = { id: '1', name: 'A', via: 'B', lines: ['7'] };
+    expect(st(ok)).toThrow(/^STATIONS must be a JSON array$/);
+    expect(st([ok, { id: '2', name: 'B', via: 'C' }])).toThrow(/^STATIONS\[1\]\.lines must be an array of strings$/);
+    expect(st([{ ...ok, lines: [7] }])).toThrow(/^STATIONS\[0\]\.lines must be an array of strings$/);
+    expect(st([{ ...ok, id: 8591281 }])).toThrow(/^STATIONS\[0\]\.id must be a string$/);
+    expect(st([{ ...ok, name: undefined }])).toThrow(/^STATIONS\[0\]\.name must be a string$/);
+    expect(st([{ ...ok, via: null }])).toThrow(/^STATIONS\[0\]\.via must be a string$/);
+    expect(st([null])).toThrow(/^STATIONS\[0\] must be an object$/);
+    expect(loadConfig({ ...base, STATIONS: JSON.stringify([{ ...ok, lines: [] }]) }).stations[0]?.lines).toEqual([]);
+  });
+});

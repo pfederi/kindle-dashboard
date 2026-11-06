@@ -1,0 +1,214 @@
+export interface CalendarConfig {
+  label: string;
+  url: string;
+}
+
+export interface StationConfig {
+  id: string;
+  name: string;
+  via: string;
+  lines: string[];
+  /** Minutes on foot from the front door; departures leaving sooner are out of reach. */
+  walk?: number;
+}
+
+/** A birthday greeted on Heute and the night screen; `date` is «MM-DD». */
+export interface BirthdayConfig {
+  name: string;
+  date: string;
+}
+
+/** Push notifications via ntfy when the Kindle stops calling in. */
+export interface NtfyConfig {
+  server: string;
+  topic: string;
+  /** Tolerated delay after the next expected poll before alerting. */
+  graceMinutes: number;
+}
+
+/** Minutes since midnight. `start > end` means the range crosses midnight. */
+export interface QuietHours {
+  start: number;
+  end: number;
+}
+
+export interface BringConfig {
+  email: string;
+  password: string;
+  list: string;
+  locale: string;
+  /** Bring! list for household tasks; '' = no tasks. */
+  tasksList: string;
+}
+
+export interface Config {
+  /** Push notification when the Kindle stops calling in; null when NTFY_TOPIC is not set. */
+  ntfy: NtfyConfig | null;
+  port: number;
+  deviceToken: string;
+  previewPassword: string;
+  calendars: CalendarConfig[];
+  weather: { lat: number; lon: number };
+  stations: StationConfig[];
+  birthdays: BirthdayConfig[];
+  bring: BringConfig | null;
+  /** Zurich postcode for the paper/cardboard collection dates; '' turns them off. */
+  wasteZip: string;
+  refreshSeconds: number;
+  quietHours: QuietHours | null;
+  viewResetSeconds: number;
+}
+
+export const DEFAULT_STATIONS: StationConfig[] = [
+  { id: '8591382', name: 'Sternen', via: 'Zürich, Milchbuck', lines: ['10'], walk: 3 },
+  { id: '8503006', name: 'Oerlikon', via: 'Zürich HB', lines: ['S7', 'S16'], walk: 6 },
+  { id: '8591063', name: 'Oerlikon Ost', via: 'Zürich, Milchbuck', lines: ['51'], walk: 5 },
+];
+
+export const DEFAULT_BIRTHDAYS: BirthdayConfig[] = [];
+
+type Env = Record<string, string | undefined>;
+
+function json<T>(env: Env, key: string, fallback: T): T {
+  const raw = env[key];
+  if (raw === undefined || raw.trim() === '') return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    throw new Error(`${key} is not valid JSON`);
+  }
+}
+
+function int(env: Env, key: string, fallback: number): number {
+  const raw = env[key];
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0) throw new Error(`${key} must be a positive integer`);
+  return n;
+}
+
+function float(env: Env, key: string, fallback: number): number {
+  const raw = env[key];
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) throw new Error(`${key} must be a number`);
+  return n;
+}
+
+function entries(key: string, value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) throw new Error(`${key} must be a JSON array`);
+  return value.map((entry: unknown, i) => {
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) throw new Error(`${key}[${i}] must be an object`);
+    return entry as Record<string, unknown>;
+  });
+}
+
+function isHttpUrl(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  try {
+    const { protocol } = new URL(value);
+    return protocol === 'https:' || protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+/** Errors name only the index and field: calendar URLs are secrets and must never be echoed. */
+function calendars(value: unknown): CalendarConfig[] {
+  return entries('CALENDARS', value).map((c, i) => {
+    if (typeof c.label !== 'string' || c.label.trim() === '') throw new Error(`CALENDARS[${i}].label must be a non-empty string`);
+    if (!isHttpUrl(c.url)) throw new Error(`CALENDARS[${i}].url is not a valid URL`);
+    return { label: c.label, url: c.url as string };
+  });
+}
+
+function stations(value: unknown): StationConfig[] {
+  return entries('STATIONS', value).map((st, i) => {
+    for (const field of ['id', 'name', 'via'] as const) {
+      if (typeof st[field] !== 'string') throw new Error(`STATIONS[${i}].${field} must be a string`);
+    }
+    if (!Array.isArray(st.lines) || !st.lines.every((l) => typeof l === 'string')) {
+      throw new Error(`STATIONS[${i}].lines must be an array of strings`);
+    }
+    if (st.walk !== undefined && !(Number.isInteger(st.walk) && (st.walk as number) >= 0 && (st.walk as number) <= 60)) {
+      throw new Error(`STATIONS[${i}].walk must be whole minutes from 0 to 60`);
+    }
+    const station: StationConfig = { id: st.id as string, name: st.name as string, via: st.via as string, lines: st.lines as string[] };
+    if (st.walk !== undefined) station.walk = st.walk as number;
+    return station;
+  });
+}
+
+/** Days per month in a leap year: 29 February is a valid birthday. */
+const MONTH_DAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function birthdays(value: unknown): BirthdayConfig[] {
+  return entries('BIRTHDAYS', value).map((b, i) => {
+    const name = typeof b.name === 'string' ? b.name.trim() : '';
+    if (name === '') throw new Error(`BIRTHDAYS[${i}].name must be a non-empty string`);
+    const m = typeof b.date === 'string' ? /^(\d{2})-(\d{2})$/.exec(b.date) : null;
+    const month = Number(m?.[1]);
+    const day = Number(m?.[2]);
+    if (!m || month < 1 || month > 12 || day < 1 || day > MONTH_DAYS[month - 1]!) throw new Error(`BIRTHDAYS[${i}].date must be a date like 12-01 (MM-DD)`);
+    return { name, date: b.date as string };
+  });
+}
+
+function wasteZip(raw: string | undefined): string {
+  const zip = (raw ?? '8050').trim();
+  if (zip !== '' && !/^\d{4}$/.test(zip)) throw new Error('WASTE_ZIP must be a four-digit postcode or empty');
+  return zip;
+}
+
+function ntfy(env: Env): NtfyConfig | null {
+  const topic = env.NTFY_TOPIC?.trim();
+  if (!topic) return null;
+  // Anyone who knows the topic can read it on ntfy.sh, so it must be hard to guess.
+  if (!/^[A-Za-z0-9_-]{12,64}$/.test(topic)) throw new Error('NTFY_TOPIC must be 12–64 letters, digits, - or _');
+  return { server: (env.NTFY_SERVER?.trim() || 'https://ntfy.sh').replace(/\/+$/, ''), topic, graceMinutes: int(env, 'OFFLINE_ALERT_MINUTES', 15) };
+}
+
+/** Default night: the night screen shows from midnight to 5:30. An empty value turns it off. */
+export const DEFAULT_QUIET_HOURS = '00:00-05:30';
+
+function quiet(raw: string | undefined): QuietHours | null {
+  if (raw === undefined) raw = DEFAULT_QUIET_HOURS;
+  if (raw.trim() === '') return null;
+  const m = /^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/.exec(raw.trim());
+  if (!m) throw new Error('QUIET_HOURS must look like 23:00-06:00');
+  const [, h1, m1, h2, m2] = m.map(Number) as [number, number, number, number, number];
+  return { start: h1 * 60 + m1, end: h2 * 60 + m2 };
+}
+
+export function loadConfig(env: Env): Config {
+  const missing = ['DEVICE_TOKEN', 'PREVIEW_PASSWORD'].filter((k) => !env[k]);
+  if (missing.length > 0) throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+
+  let bring: BringConfig | null = null;
+  if (env.BRING_EMAIL) {
+    if (!env.BRING_PASSWORD) throw new Error('BRING_PASSWORD is required when BRING_EMAIL is set');
+    bring = {
+      email: env.BRING_EMAIL,
+      password: env.BRING_PASSWORD,
+      list: env.BRING_LIST ?? 'Zuhause',
+      locale: env.BRING_LOCALE ?? 'de-CH',
+      tasksList: (env.BRING_TASKS_LIST ?? 'Aufgaben').trim(),
+    };
+  }
+
+  return {
+    port: int(env, 'PORT', 3000),
+    deviceToken: env.DEVICE_TOKEN as string,
+    previewPassword: env.PREVIEW_PASSWORD as string,
+    calendars: calendars(json<unknown>(env, 'CALENDARS', [])),
+    weather: { lat: float(env, 'WEATHER_LAT', 47.411), lon: float(env, 'WEATHER_LON', 8.544) },
+    stations: stations(json<unknown>(env, 'STATIONS', DEFAULT_STATIONS)),
+    birthdays: birthdays(json<unknown>(env, 'BIRTHDAYS', DEFAULT_BIRTHDAYS)),
+    bring,
+    wasteZip: wasteZip(env.WASTE_ZIP),
+    refreshSeconds: int(env, 'REFRESH_SECONDS', 120),
+    quietHours: quiet(env.QUIET_HOURS),
+    ntfy: ntfy(env),
+    viewResetSeconds: int(env, 'VIEW_RESET_SECONDS', 120),
+  };
+}
