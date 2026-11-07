@@ -5,7 +5,7 @@ import type { DayEntry } from '../sources/calendar.js';
 import { describeWmo } from '../sources/wmo.js';
 import { LATE_MIN, leaveAt, reachable } from '../sources/transit.js';
 import { firstRainHour, type HourlyRain, nextHours, rainStartHour, type Weather } from '../sources/weather.js';
-import { AddTaskButton, BatteryMark, BIRTHDAY_ROWS, BirthdayBanner, EventList, GuestMark, HolidayBanner, Icon, LineBadge, names, Tabs, TASK_ROWS, TaskBox } from './components.js';
+import { AddTaskButton, BatteryMark, BIRTHDAY_ROWS, BirthdayBanner, COMMUTE_ICONS, EventList, GuestMark, HolidayBanner, Icon, LineBadge, names, Tabs, TASK_ROWS, TaskBox } from './components.js';
 import type { Commute } from '../sources/commute.js';
 import type { BoardModel, HeuteModel } from './model.js';
 import { page } from './page.js';
@@ -169,21 +169,48 @@ const SCOOTER_ICON = 52;
 /** Below this, a delay is noise and not shown. */
 export const COMMUTE_DELAY_MIN = 3;
 
-/** «Zur Arbeit 18 Min. · an 08:02 · +4 Min. Stau»: by scooter, leaving now, against the usual time of day. A tap opens the map. */
-function CommuteLine({ label, travel, now }: { label: string; travel: Commute | null; now: Date }) {
+/**
+ * «18 Min. · an 08:02 · +4 Min. Stau»: leaving now, against the usual time of day. `short` for two
+ * destinations: without the arrival (on the map), as two of them do not fit.
+ */
+function Travel({ travel, now, short }: { travel: Commute | null; now: Date; short?: boolean }) {
+  if (travel === null) return <span class="none">{short ? 'keine Daten' : 'keine Verkehrsdaten'}</span>;
   return (
-    <div class="commute" data-action="commute">
+    <>
+      <b>{travel.minutes} Min.</b>
+      {!short && <span>an {formatTime(new Date(now.getTime() + travel.minutes * 60_000))}</span>}
+      {travel.delayMinutes >= COMMUTE_DELAY_MIN && <b class="late">+{travel.delayMinutes} {short ? 'Stau' : 'Min. Stau'}</b>}
+    </>
+  );
+}
+
+/**
+ * By scooter: «Zur Arbeit 18 Min. · an 08:02», or with a school as well an icon per destination after a
+ * divider. A tap opens the map of the destination tapped.
+ */
+function CommuteLine({ commutes, now }: { commutes: NonNullable<HeuteModel['commutes']>; now: Date }) {
+  const [only] = commutes;
+  if (commutes.length === 1 && only) {
+    return (
+      <div class="commute" data-action="commute:0">
+        <Icon name="scooter" size={SCOOTER_ICON} />
+        {only.badge && <span class="cal">{only.badge}</span>}
+        <span>{only.label}</span>
+        <Travel travel={only.travel} now={now} />
+      </div>
+    );
+  }
+  return (
+    <div class="commute" data-action="commute:0">
       <Icon name="scooter" size={SCOOTER_ICON} />
-      <span>{label}</span>
-      {travel === null ? (
-        <span class="none">keine Verkehrsdaten</span>
-      ) : (
-        <>
-          <b>{travel.minutes} Min.</b>
-          <span>an {formatTime(new Date(now.getTime() + travel.minutes * 60_000))}</span>
-          {travel.delayMinutes >= COMMUTE_DELAY_MIN && <b class="late">+{travel.delayMinutes} Min. Stau</b>}
-        </>
-      )}
+      <span class="sep" />
+      {commutes.map((c, i) => (
+        <span class="dest" data-action={`commute:${i}`}>
+          {c.badge && <span class="cal">{c.badge}</span>}
+          <Icon name={COMMUTE_ICONS[c.icon]} size={40} />
+          <Travel travel={c.travel} now={now} short />
+        </span>
+      ))}
     </div>
   );
 }
@@ -228,7 +255,7 @@ const hasTasks = (m: HeuteModel) => (m.tasks?.length ?? 0) > 0;
  * 1.8 rows of room); the task box and the commute line above the departures take some.
  */
 const rowsBeforeBirthday = (m: HeuteModel) =>
-  MAX_EVENTS_HEUTE + (showsRainStrip(m) ? 0 : 1) - (hasTasks(m) ? TASK_ROWS : 0) - (m.commute ? COMMUTE_ROWS : 0);
+  MAX_EVENTS_HEUTE + (showsRainStrip(m) ? 0 : 1) - (hasTasks(m) ? TASK_ROWS : 0) - (m.commutes ? COMMUTE_ROWS : 0);
 
 /** The greeting is compact (one row) in the evening, and whenever the full one would leave no event row. */
 const compactBirthday = (m: HeuteModel) => (m.evening ?? false) || rowsBeforeBirthday(m) - BIRTHDAY_ROWS < 1;
@@ -348,7 +375,7 @@ function Heute({ m }: { m: HeuteModel }) {
         <div class="rule" />
         <div class={m.evening ? 'agenda evening' : 'agenda'} data-action="nav:woche" data-hold="guest">
           {m.welcome ? (
-            <Welcome guests={m.welcome.guests} wifi={m.welcome.wifi} qrPx={m.commute ? WELCOME_QR_PX_COMMUTE : WELCOME_QR_PX} />
+            <Welcome guests={m.welcome.guests} wifi={m.welcome.wifi} qrPx={m.commutes ? WELCOME_QR_PX_COMMUTE : WELCOME_QR_PX} />
           ) : (
             <>
               {m.birthdays && m.birthdays.length > 0 ? (
@@ -372,9 +399,9 @@ function Heute({ m }: { m: HeuteModel }) {
         </div>
         <div class="transit">
           <div class="rule" />
-          {m.commute && (
+          {m.commutes && (
             <>
-              <CommuteLine label={m.commute.label} travel={m.commute.travel} now={m.now} />
+              <CommuteLine commutes={m.commutes} now={m.now} />
               <div class="rule" />
             </>
           )}

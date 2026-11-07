@@ -129,7 +129,7 @@ describe('HTTP API', () => {
     expect((await a.inject({ method: 'GET', url: '/preview' })).statusCode).toBe(401);
     const index = await a.inject({ method: 'GET', url: '/preview', headers: basic('admin', 'pw') });
     expect(index.statusCode).toBe(200);
-    for (const href of ['/preview/heute?abend=1', '/preview/heute?nacht=1', '/preview/heute?gast=1', '/preview/woche?gast=1', '/preview/wetter', '/preview/station?station=2', '/preview/station?station=2&amp;png=1', '/preview/status', '/preview/heute?akku=1', '/preview/nacht', '/preview/arbeitsweg?stau=1']) {
+    for (const href of ['/preview/heute?abend=1', '/preview/heute?nacht=1', '/preview/heute?gast=1', '/preview/woche?gast=1', '/preview/wetter', '/preview/station?station=2', '/preview/station?station=2&amp;png=1', '/preview/status', '/preview/heute?akku=1', '/preview/nacht', '/preview/arbeitsweg?ziel=0', '/preview/arbeitsweg?ziel=0&amp;stau=1']) {
       expect(index.body).toContain(`href="${href}"`);
     }
     expect(index.body).toContain('>Haltestelle Hallenstadion</a>');
@@ -149,8 +149,9 @@ describe('HTTP API', () => {
     expect(dashboard.previewHtml).toHaveBeenLastCalledWith('woche', { station: undefined, evening: false, night: false, guest: true, lowBattery: false, moon: undefined, holiday: undefined, jam: false });
     await a.inject({ method: 'GET', url: '/preview/heute?akku=1', headers: basic('admin', 'pw') });
     expect(dashboard.previewHtml).toHaveBeenLastCalledWith('heute', { station: undefined, evening: false, night: false, guest: false, lowBattery: true, moon: undefined, holiday: undefined, jam: false });
-    await a.inject({ method: 'GET', url: '/preview/arbeitsweg?stau=1', headers: basic('admin', 'pw') });
-    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('arbeitsweg', { station: undefined, evening: false, night: false, guest: false, lowBattery: false, moon: undefined, holiday: undefined, jam: true });
+    await a.inject({ method: 'GET', url: '/preview/arbeitsweg?ziel=1&stau=1', headers: basic('admin', 'pw') });
+    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('arbeitsweg', { station: undefined, evening: false, night: false, guest: false, lowBattery: false, moon: undefined, holiday: undefined, jam: true, commute: 1 });
+    expect((await a.inject({ method: 'GET', url: '/preview/arbeitsweg?ziel=x', headers: basic('admin', 'pw') })).statusCode).toBe(400);
     expect((await a.inject({ method: 'GET', url: '/preview/station?station=x', headers: basic('admin', 'pw') })).statusCode).toBe(400);
   });
 

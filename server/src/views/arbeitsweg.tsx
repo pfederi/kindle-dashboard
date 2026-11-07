@@ -1,7 +1,7 @@
 import { render } from 'preact-render-to-string';
 import { formatTime } from '../format.js';
 import { type CommuteRoute, JAM_RATIO, type LatLon, MAP_PX, project, SLOW_RATIO, type Stretch } from '../sources/commute-route.js';
-import { Icon } from './components.js';
+import { COMMUTE_ICONS, Icon } from './components.js';
 import { COMMUTE_DELAY_MIN } from './heute.js';
 import type { ArbeitswegModel } from './model.js';
 import { page } from './page.js';
@@ -91,7 +91,18 @@ function Arbeitsweg({ m }: { m: ArbeitswegModel }) {
     <div class="screen view-arbeitsweg">
       <div class="main">
         <div class="topbar">
-          <div class="title serif">{m.label}</div>
+          {m.tabs.length > 1 ? (
+            <div class="segs">
+              {m.tabs.map((t, i) => (
+                <div class={i === m.active ? 'seg on' : 'seg'} data-action={`commute:${i}`}>
+                  {t.badge && <span class="cal">{t.badge}</span>}
+                  <Icon name={COMMUTE_ICONS[t.icon]} size={36} /> {t.label}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div class="title serif">{m.tabs[0]?.label}</div>
+          )}
           <div class="close" data-action="close">
             <Icon name="x" size={34} /> Schliessen
           </div>

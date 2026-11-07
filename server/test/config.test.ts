@@ -56,8 +56,23 @@ describe('loadConfig', () => {
   it('sets up the scooter travel time only with key, start and destination, and checks them', () => {
     expect(loadConfig(base).commute).toBeNull();
     const env = { ...base, HERE_API_KEY: ' k3y ', COMMUTE_FROM: '47.411, 8.544', COMMUTE_TO: '47.378,8.54' };
-    expect(loadConfig(env).commute).toEqual({ apiKey: 'k3y', from: { lat: 47.411, lon: 8.544 }, to: { lat: 47.378, lon: 8.54 }, highway: true, label: 'Zur Arbeit', walkMinutes: 0 });
-    expect(loadConfig({ ...env, COMMUTE_HIGHWAY: '0', COMMUTE_LABEL: 'Zum Geschäft', COMMUTE_WALK_MINUTES: '5' }).commute).toMatchObject({ highway: false, label: 'Zum Geschäft', walkMinutes: 5 });
+    expect(loadConfig(env).commute).toEqual({
+      apiKey: 'k3y',
+      from: { lat: 47.411, lon: 8.544 },
+      highway: true,
+      walkMinutes: 0,
+      destinations: [{ to: { lat: 47.378, lon: 8.54 }, label: 'Zur Arbeit', icon: 'work', badge: '' }],
+    });
+    expect(loadConfig({ ...env, COMMUTE_HIGHWAY: '0', COMMUTE_LABEL: 'Zum Geschäft', COMMUTE_WALK_MINUTES: '5' }).commute).toMatchObject({
+      highway: false,
+      walkMinutes: 5,
+      destinations: [{ label: 'Zum Geschäft' }],
+    });
+    // A school from the same start, with whose ride it is as a calendar abbreviation.
+    expect(loadConfig({ ...env, COMMUTE_SCHOOL_TO: '47.39,8.51', COMMUTE_SCHOOL_BADGE: 'AB' }).commute?.destinations[1]).toEqual({ to: { lat: 47.39, lon: 8.51 }, label: 'Schule', icon: 'school', badge: 'AB' });
+    expect(loadConfig({ ...env, COMMUTE_SCHOOL_TO: '47.39,8.51', COMMUTE_SCHOOL_LABEL: 'Gymi' }).commute?.destinations[1]?.label).toBe('Gymi');
+    expect(() => loadConfig({ ...env, COMMUTE_SCHOOL_TO: 'Schulhaus' })).toThrow(/COMMUTE_SCHOOL_TO must look like/);
+    expect(() => loadConfig({ ...env, COMMUTE_BADGE: 'zu lang' })).toThrow(/COMMUTE_BADGE must be 1–4/);
     expect(() => loadConfig({ ...env, COMMUTE_WALK_MINUTES: '5 Min' })).toThrow(/COMMUTE_WALK_MINUTES/);
     expect(() => loadConfig({ ...base, HERE_API_KEY: 'k3y' })).toThrow(/COMMUTE_FROM, COMMUTE_TO/);
     expect(() => loadConfig({ ...env, COMMUTE_TO: 'Bahnhofstrasse 1' })).toThrow(/COMMUTE_TO must look like/);

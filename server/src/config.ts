@@ -39,17 +39,26 @@ export interface GuestWifi {
   password: string;
 }
 
-/** Scooter travel time to work with live traffic (HERE). */
+/** Where a scooter ride goes; the icon stands for it in Heute when there are two. */
+export interface CommuteDestination {
+  to: { lat: number; lon: number };
+  /** e.g. «Zur Arbeit». */
+  label: string;
+  icon: 'work' | 'school';
+  /** Whose ride, as the calendar abbreviations show it, e.g. «LE»; '' = none. */
+  badge: string;
+}
+
+/** Scooter travel time with live traffic (HERE) from home to work and, optionally, to school. */
 export interface CommuteConfig {
   apiKey: string;
   from: { lat: number; lon: number };
-  to: { lat: number; lon: number };
   /** Motorways allowed (a 125 cm³ scooter may use them). */
   highway: boolean;
-  /** Shown before the time, e.g. «Zur Arbeit». */
-  label: string;
   /** Minutes on foot to the scooter (e.g. to the garage), added to the ride. */
   walkMinutes: number;
+  /** Work first, then school if configured. */
+  destinations: CommuteDestination[];
 }
 
 export interface BringConfig {
@@ -212,13 +221,23 @@ function commute(env: Env): CommuteConfig | null {
   if (highway !== '0' && highway !== '1') throw new Error('COMMUTE_HIGHWAY must be 1 (motorways allowed) or 0');
   const walk = (env.COMMUTE_WALK_MINUTES ?? '').trim();
   if (walk !== '' && !/^\d{1,2}$/.test(walk)) throw new Error('COMMUTE_WALK_MINUTES must be whole minutes from 0 to 99');
+  const school = env.COMMUTE_SCHOOL_TO?.trim();
+  const badge = (key: string) => {
+    const v = (env[key] ?? '').trim();
+    if (v !== '' && !/^[\p{L}\d]{1,4}$/u.test(v)) throw new Error(`${key} must be 1–4 letters or digits, like a calendar label`);
+    return v;
+  };
   return {
     apiKey: env.HERE_API_KEY!.trim(),
     from: coords('COMMUTE_FROM', env.COMMUTE_FROM!),
-    to: coords('COMMUTE_TO', env.COMMUTE_TO!),
     highway: highway === '1',
-    label: env.COMMUTE_LABEL?.trim() || 'Zur Arbeit',
     walkMinutes: walk === '' ? 0 : Number(walk),
+    destinations: [
+      { to: coords('COMMUTE_TO', env.COMMUTE_TO!), label: env.COMMUTE_LABEL?.trim() || 'Zur Arbeit', icon: 'work', badge: badge('COMMUTE_BADGE') },
+      ...(school
+        ? [{ to: coords('COMMUTE_SCHOOL_TO', school), label: env.COMMUTE_SCHOOL_LABEL?.trim() || 'Schule', icon: 'school' as const, badge: badge('COMMUTE_SCHOOL_BADGE') }]
+        : []),
+    ],
   };
 }
 

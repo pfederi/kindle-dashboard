@@ -2,7 +2,7 @@ import { buildApp } from './app.js';
 import { TtlCache } from './cache.js';
 import { systemClock } from './clock.js';
 import { loadConfig } from './config.js';
-import { Dashboard } from './dashboard.js';
+import { type CommuteSource, Dashboard } from './dashboard.js';
 import { startOfWeek } from './format.js';
 import { BatteryMonitor, KindleMonitor, ntfySender } from './monitor.js';
 import { refreshSeconds } from './state.js';
@@ -17,7 +17,7 @@ import { BringSource, disabledBring, MAX_TASK_TILES, type ShoppingSource, TASK_S
 import { CalendarSource } from './sources/calendar.js';
 import { TransitSource } from './sources/transit.js';
 import { fetchLakeTemp } from './sources/lake.js';
-import { fetchCommute } from './sources/commute.js';
+import { fetchCommute, trip } from './sources/commute.js';
 import { CommuteRouteSource } from './sources/commute-route.js';
 import { fetchWaste } from './sources/waste.js';
 import { fetchWeather } from './sources/weather.js';
@@ -32,12 +32,24 @@ async function main(): Promise<void> {
   const wasteZip = config.wasteZip;
   const wasteCache = wasteZip ? new TtlCache(6 * 3_600_000, () => fetchWaste(fetchFn, wasteZip, startOfWeek(clock())), clock, 'waste') : null;
 
-  // Scooter travel time with traffic; 5 minutes, and only fetched while Heute is shown (not at night).
+  // Per destination: the scooter travel time with traffic, 5 minutes, only fetched while Heute is shown (not
+  // at night); route and map for «Arbeitsweg» only when the screen is opened, reused for 2 minutes.
   const commuteConfig = config.commute;
-  const commuteCache = commuteConfig ? new TtlCache(5 * 60_000, () => fetchCommute(fetchFn, commuteConfig), clock, 'commute') : null;
-  // Route and map for «Arbeitsweg»: only fetched when the screen is opened; a second look within 2 minutes reuses them.
-  const routeSource = commuteConfig ? new CommuteRouteSource(fetchFn, commuteConfig) : null;
-  const routeCache = routeSource ? new TtlCache(2 * 60_000, () => routeSource.load(), clock, 'commute:route') : null;
+  const commutes = commuteConfig?.destinations.map((d, i): CommuteSource => {
+    const t = trip(commuteConfig, d);
+    const name = i === 0 ? 'commute' : `commute:${d.icon}`;
+    const travel = new TtlCache(5 * 60_000, () => fetchCommute(fetchFn, t), clock, name);
+    const routeSource = new CommuteRouteSource(fetchFn, t);
+    const route = new TtlCache(2 * 60_000, () => routeSource.load(), clock, `${name}:route`);
+    return {
+      label: d.label,
+      icon: d.icon,
+      badge: d.badge,
+      walkMinutes: commuteConfig.walkMinutes,
+      get: async (force) => (await travel.get(force))?.value ?? null,
+      route: async (force) => (await route.get(force))?.value ?? null,
+    };
+  });
 
   let bring = disabledBring;
   let tasks: ShoppingSource | undefined;
@@ -77,15 +89,7 @@ async function main(): Promise<void> {
       transit: new TransitSource(config.stations, fetchFn, clock),
       bring,
       tasks,
-      commute:
-        commuteConfig && commuteCache && routeCache
-          ? {
-              label: commuteConfig.label,
-              walkMinutes: commuteConfig.walkMinutes,
-              get: async (force) => (await commuteCache.get(force))?.value ?? null,
-              route: async (force) => (await routeCache.get(force))?.value ?? null,
-            }
-          : undefined,
+      commutes,
     },
     renderer,
     clock,
@@ -105,6 +109,7 @@ async function main(): Promise<void> {
     deviceToken: config.deviceToken,
     previewPassword: config.previewPassword,
     stations: config.stations.map((s) => s.name),
+    commutes: commuteConfig?.destinations.map((d) => d.label),
     onBattery: (b) => {
       // Every change of the level, so the log shows how fast the battery drains (Coolify adds the time).
       if (status.battery(b)) console.log(`[battery] ${b.level} %${b.charging ? ' lädt' : ''}`);

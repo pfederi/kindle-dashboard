@@ -1,4 +1,4 @@
-import type { CommuteConfig } from '../config.js';
+import type { CommuteConfig, CommuteDestination } from '../config.js';
 import type { FetchFn } from '../http.js';
 import { TIMEOUT_MS } from '../http.js';
 
@@ -10,11 +10,23 @@ export interface Commute {
   delayMinutes: number;
 }
 
+/** One ride: from home to one destination. */
+export interface Trip {
+  apiKey: string;
+  from: { lat: number; lon: number };
+  to: { lat: number; lon: number };
+  highway: boolean;
+}
+
+export function trip(c: CommuteConfig, d: CommuteDestination): Trip {
+  return { apiKey: c.apiKey, from: c.from, to: d.to, highway: c.highway };
+}
+
 /**
  * HERE Routing v8 in scooter mode: roads open to motorcycles, motorways only if allowed (125 cm³).
  * Without departureTime HERE routes for now, with live traffic.
  */
-export function commuteUrl(c: CommuteConfig): string {
+export function commuteUrl(c: Trip): string {
   const q = new URLSearchParams({
     transportMode: 'scooter',
     origin: `${c.from.lat},${c.from.lon}`,
@@ -54,7 +66,7 @@ export function sumSections(sections: { summary?: Summary }[]): Commute {
   return { minutes: Math.max(1, Math.round(duration / 60)), delayMinutes: Math.round((duration - usual) / 60) };
 }
 
-export async function fetchCommute(fetchFn: FetchFn, c: CommuteConfig): Promise<Commute> {
+export async function fetchCommute(fetchFn: FetchFn, c: Trip): Promise<Commute> {
   const res = await fetchFn(commuteUrl(c), { signal: AbortSignal.timeout(TIMEOUT_MS) });
   // Never the URL in errors: it carries the API key.
   if (!res.ok) throw new Error(`here HTTP ${res.status}`);

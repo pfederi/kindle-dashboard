@@ -38,7 +38,7 @@ try {
 
   const apiKey = process.env.HERE_API_KEY?.trim();
   const map = apiKey ? await fetchMap((u, init) => fetch(u, init), apiKey, commuteDetail().view) : null;
-  save('arbeitsweg', (await renderer.render(arbeitswegHtml({ now: new Date('2026-11-03T07:40:00+01:00'), label: 'Zur Arbeit', walk: 3, detail: commuteDetail(map) }))).png);
+  save('arbeitsweg', (await renderer.render(arbeitswegHtml({ now: new Date('2026-11-03T07:40:00+01:00'), tabs: [{ label: 'Zur Arbeit', icon: 'work', badge: '' }], active: 0, walk: 3, detail: commuteDetail(map) }))).png);
 
   // Einkauf and Hinzufügen right after a tap, with their feedback banner.
   const items = SHOPPING.ok ? SHOPPING.items : [];

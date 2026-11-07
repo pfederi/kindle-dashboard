@@ -29,7 +29,8 @@ describe('parseAction', () => {
     expect(parseAction('page:x')).toBeNull();
     expect(parseAction('station:2')).toEqual({ type: 'station', index: 2 });
     expect(parseAction('weather')).toEqual({ type: 'nav', view: 'wetter' });
-    expect(parseAction('commute')).toEqual({ type: 'nav', view: 'arbeitsweg' });
+    expect(parseAction('commute:1')).toEqual({ type: 'commute', index: 1 });
+    expect(parseAction('commute:x')).toBeNull();
   });
   it('rejects unknown actions', () => {
     expect(parseAction('nav:nirgends')).toBeNull();

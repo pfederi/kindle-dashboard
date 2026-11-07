@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { Clock } from './clock.js';
-import type { BirthdayConfig, GuestWifi, QuietHours } from './config.js';
+import type { BirthdayConfig, CommuteDestination, GuestWifi, QuietHours } from './config.js';
 import { addDays, isoDate, startOfDay } from './format.js';
 import { guestActive, hideEntries, toggleGuest, visitorNames } from './guest.js';
 import { type Battery, batteryLow } from './monitor.js';
@@ -51,14 +51,19 @@ export interface Sources {
   bring: ShoppingSource;
   /** Household tasks (a second Bring! list); optional so a missing list simply hides them. */
   tasks?: ShoppingSource;
-  /** Scooter travel time with traffic; optional so a missing configuration hides the line. */
-  commute?: {
-    label: string;
-    walkMinutes?: number;
-    get(force?: boolean): Promise<Commute | null>;
-    /** Route, alternative and base map for «Arbeitsweg», opened by a tap on the line. */
-    route(force?: boolean): Promise<CommuteDetail | null>;
-  };
+  /** Scooter travel time with traffic per destination (work, school); optional so a missing configuration hides the line. */
+  commutes?: CommuteSource[];
+}
+
+export interface CommuteSource {
+  label: string;
+  icon: CommuteDestination['icon'];
+  /** Whose ride, like a calendar abbreviation; '' or absent = none. */
+  badge?: string;
+  walkMinutes?: number;
+  get(force?: boolean): Promise<Commute | null>;
+  /** Route, alternative and base map for «Arbeitsweg», opened by a tap on the line. */
+  route(force?: boolean): Promise<CommuteDetail | null>;
 }
 
 export interface Screen {
@@ -132,6 +137,8 @@ export interface PreviewOptions {
   holiday?: HolidayId;
   /** «Arbeitsweg» with a jam acted out on the real route. */
   jam?: boolean;
+  /** Which destination «Arbeitsweg» shows. */
+  commute?: number;
 }
 
 export const PREVIEW_BATTERY = 15;
@@ -146,6 +153,7 @@ interface RenderContext {
   moon?: number;
   holiday?: HolidayId;
   jam?: boolean;
+  commute?: number;
 }
 /** From this hour Heute shows tonight's remaining events, tomorrow's and tomorrow's weather. */
 export const EVENING_HOUR = 19;
@@ -223,7 +231,7 @@ export class Dashboard {
       now = new Date(now);
       now.setHours(Math.floor(quiet.start / 60), (quiet.start % 60) + 30, 0, 0);
     }
-    return { now, station: opts.station ?? this.state.station, preview: true, guest: opts.guest, lowBattery: opts.lowBattery, moon: opts.moon, holiday: opts.holiday, jam: opts.jam };
+    return { now, station: opts.station ?? this.state.station, preview: true, guest: opts.guest, lowBattery: opts.lowBattery, moon: opts.moon, holiday: opts.holiday, jam: opts.jam, commute: opts.commute };
   }
 
   private async apply(action: Action): Promise<boolean> {
@@ -262,6 +270,13 @@ export class Dashboard {
       case 'station':
         this.state = { ...navigate(this.state, 'station'), station: action.index };
         return false;
+      case 'commute': {
+        // Switching tabs within «Arbeitsweg» swaps the whole map: a full refresh against ghosts.
+        const swap = this.state.view === 'arbeitsweg' && action.index !== this.state.commute;
+        const next = navigate(this.state, 'arbeitsweg');
+        this.state = { ...next, commute: action.index, fullRefreshPending: next.fullRefreshPending || swap };
+        return false;
+      }
       case 'task': {
         const tasks = this.opts.sources.tasks;
         if (!tasks) return false;
@@ -420,14 +435,14 @@ export class Dashboard {
   private async html(view: ViewName, force: boolean, ctx?: RenderContext): Promise<string> {
     const now = ctx?.now ?? this.opts.clock();
     const preview = ctx?.preview ?? false;
-    const { weather, lake, waste, calendar, transit, bring, tasks, commute } = this.opts.sources;
+    const { weather, lake, waste, calendar, transit, bring, tasks, commutes } = this.opts.sources;
     switch (view) {
       case 'heute': {
         if (this.night(now, ctx)) return this.nachtHtmlFor(now, force, ctx);
         const day = startOfDay(now);
         const evening = now.getHours() >= EVENING_HOUR;
         const tomorrow = addDays(day, 1);
-        const [w, lakeTemp, events, boards, shopping, pickups, { guest, show, visitors }, taskList, travel] = await Promise.all([
+        const [w, lakeTemp, events, boards, shopping, pickups, { guest, show, visitors }, taskList, travels] = await Promise.all([
           weather.get(force),
           lake ? lake.get(force) : null,
           calendar.events(day, addDays(day, evening ? 2 : 1), force),
@@ -436,7 +451,7 @@ export class Dashboard {
           waste ? waste.pickups(force) : null,
           this.guestFilter(now, ctx),
           tasks ? tasks.list(force) : undefined,
-          commute ? commute.get(force) : undefined,
+          commutes ? Promise.all(commutes.map((c) => c.get(force))) : undefined,
         ]);
         // Bundles must be out by 7:00, so tomorrow's collection shows the day before.
         const collections = pickups ? [...pickupEntries(pickups, day), ...pickupEntries(pickups, tomorrow, 'morgen')] : [];
@@ -453,7 +468,10 @@ export class Dashboard {
           guest,
           welcome: guest && wifi ? { guests: visitors, wifi: wifiPayload(wifi) } : undefined,
           // Door to door: the walk to the scooter comes first.
-          commute: commute ? { label: commute.label, travel: travel ? { ...travel, minutes: travel.minutes + (commute.walkMinutes ?? 0) } : null } : undefined,
+          commutes: commutes?.map((c, i) => {
+            const travel = travels?.[i] ?? null;
+            return { label: c.label, icon: c.icon, badge: c.badge ?? '', travel: travel ? { ...travel, minutes: travel.minutes + (c.walkMinutes ?? 0) } : null };
+          }),
           battery: this.lowBattery(ctx),
           birthdays: birthdaysOn(this.opts.birthdays ?? [], now),
           holiday: this.holiday(now, ctx),
@@ -507,14 +525,23 @@ export class Dashboard {
         return wetterHtml({ now, weather: w, lakeTemp });
       }
       case 'arbeitsweg': {
-        if (!commute && preview) return arbeitswegHtml({ now, label: 'Zur Arbeit', walk: 0, detail: null });
+        const list = commutes ?? [];
+        const index = Math.min(ctx?.commute ?? this.state.commute, list.length - 1);
+        const commute = list[index];
+        if (!commute && preview) return arbeitswegHtml({ now, tabs: [{ label: 'Zur Arbeit', icon: 'work', badge: '' }], active: 0, walk: 0, detail: null });
         if (!commute) {
           // Not configured (any more): the tab we came from.
           this.state = navigate(this.state, this.state.returnView);
           return this.html(this.state.view, force, ctx);
         }
         const detail = await commute.route(force);
-        return arbeitswegHtml({ now, label: commute.label, walk: commute.walkMinutes ?? 0, detail: detail && ctx?.jam ? withJam(detail) : detail });
+        return arbeitswegHtml({
+          now,
+          tabs: list.map(({ label, icon, badge }) => ({ label, icon, badge: badge ?? '' })),
+          active: index,
+          walk: commute.walkMinutes ?? 0,
+          detail: detail && ctx?.jam ? withJam(detail) : detail,
+        });
       }
       case 'station': {
         const index = ctx?.station ?? this.state.station;

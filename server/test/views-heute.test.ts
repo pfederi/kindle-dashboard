@@ -340,10 +340,27 @@ describe('Heute view', () => {
   });
 
   it('shows the scooter travel time above the departures, a delay from 3 minutes, and no line without configuration', () => {
-    const line = (travel: { minutes: number; delayMinutes: number } | null) => heuteMarkup(heuteModel({ commute: { label: 'Zur Arbeit', travel } }));
-    expect(line({ minutes: 18, delayMinutes: 4 })).toMatch(/<div class="rule"><\/div><div class="commute" data-action="commute">.*Zur Arbeit<\/span><b>18 Min\.<\/b><span>an 07:58<\/span><b class="late">\+4 Min\. Stau<\/b><\/div><div class="rule"><\/div><div class="ov">/);
+    const line = (travel: { minutes: number; delayMinutes: number } | null) => heuteMarkup(heuteModel({ commutes: [{ label: 'Zur Arbeit', icon: 'work', badge: '', travel }] }));
+    expect(line({ minutes: 18, delayMinutes: 4 })).toMatch(/<div class="rule"><\/div><div class="commute" data-action="commute:0">.*Zur Arbeit<\/span><b>18 Min\.<\/b><span>an 07:58<\/span><b class="late">\+4 Min\. Stau<\/b><\/div><div class="rule"><\/div><div class="ov">/);
     expect(line({ minutes: 15, delayMinutes: 2 })).not.toContain('Stau');
     expect(line(null)).toContain('keine Verkehrsdaten');
     expect(html).not.toContain('class="commute"');
+  });
+
+  it('shows work and school after a divider, each with its icon, a tap zone and the short delay, without arrival', () => {
+    const html = heuteMarkup(
+      heuteModel({
+        commutes: [
+          { label: 'Zur Arbeit', icon: 'work', badge: '', travel: { minutes: 18, delayMinutes: 4 } },
+          { label: 'Schule', icon: 'school', badge: 'LE', travel: null },
+        ],
+      }),
+    );
+    expect(html).toContain('<div class="commute" data-action="commute:0">');
+    expect(html).toContain('<span class="sep"></span><span class="dest" data-action="commute:0">');
+    expect(html).toMatch(/<span class="dest" data-action="commute:0"><span class="icon"><svg class="lucide lucide-briefcase".*?<b>18 Min\.<\/b><b class="late">\+4 Stau<\/b><\/span>/);
+    expect(html).toMatch(/<span class="dest" data-action="commute:1"><span class="cal">LE<\/span><span class="icon"><svg class="lucide lucide-school".*?<span class="none">keine Daten<\/span><\/span>/);
+    expect(html).not.toContain('Zur Arbeit');
+    expect(html).not.toMatch(/class="commute".*an 07:58/);
   });
 });

@@ -42,8 +42,8 @@ export interface HeuteModel {
   battery?: number | null;
   /** In guest mode with a guest WLAN: a greeting and the WLAN QR code instead of the events. */
   welcome?: { guests: string[]; wifi: string };
-  /** Scooter travel time above the departures; travel null = no data; absent = not configured. */
-  commute?: { label: string; travel: Commute | null };
+  /** Scooter travel time per destination above the departures; travel null = no data; absent = not configured. */
+  commutes?: { label: string; icon: CommuteIcon; badge: string; travel: Commute | null }[];
   /** Open tasks, newest first; null = list unavailable; absent = no task list configured. */
   tasks?: TaskItem[] | null;
   boards: BoardModel[];
@@ -69,10 +69,15 @@ export interface StationModel {
   outboundTo: string | null;
 }
 
+export type CommuteIcon = 'work' | 'school';
+
 export interface ArbeitswegModel {
   now: Date;
-  /** Title, e.g. «Zur Arbeit». */
-  label: string;
+  /** The destinations; with two they are tabs instead of the title. */
+  /** badge: whose ride, like a calendar abbreviation; '' = none. */
+  tabs: { label: string; icon: CommuteIcon; badge: string }[];
+  /** Index of the destination shown. */
+  active: number;
   /** Minutes on foot to the scooter, added to every ride. */
   walk: number;
   /** null = no data. */

@@ -1,7 +1,6 @@
-import type { CommuteConfig } from '../config.js';
 import type { FetchFn } from '../http.js';
 import { TIMEOUT_MS } from '../http.js';
-import { type Commute, type Summary, sumSections } from './commute.js';
+import { type Commute, type Summary, sumSections, type Trip } from './commute.js';
 
 /** [latitude, longitude] */
 export type LatLon = [number, number];
@@ -86,7 +85,7 @@ export function decodePolyline(encoded: string): LatLon[] {
 }
 
 /** Like commuteUrl, with the geometry, the traffic speed and street name per stretch, and one alternative. */
-export function routesUrl(c: CommuteConfig): string {
+export function routesUrl(c: Trip): string {
   const q = new URLSearchParams({
     transportMode: 'scooter',
     origin: `${c.from.lat},${c.from.lon}`,
@@ -145,7 +144,7 @@ export function parseRoutes(json: unknown): CommuteRoute[] {
   });
 }
 
-export async function fetchRoutes(fetchFn: FetchFn, c: CommuteConfig): Promise<CommuteRoute[]> {
+export async function fetchRoutes(fetchFn: FetchFn, c: Trip): Promise<CommuteRoute[]> {
   const res = await fetchFn(routesUrl(c), { signal: AbortSignal.timeout(TIMEOUT_MS) });
   // Never the URL in errors: it carries the API key.
   if (!res.ok) throw new Error(`here HTTP ${res.status}`);
@@ -228,7 +227,7 @@ export class CommuteRouteSource {
 
   constructor(
     private readonly fetchFn: FetchFn,
-    private readonly config: CommuteConfig,
+    private readonly config: Trip,
   ) {}
 
   async load(): Promise<CommuteDetail> {

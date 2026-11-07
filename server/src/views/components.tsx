@@ -3,11 +3,14 @@ import type { Holiday } from '../holidays.js';
 import { litPath, type MoonPhase } from '../moon.js';
 import type { MainView, Notice } from '../state.js';
 import { iconSvg, type UiIcon } from './icons.js';
-import type { TaskItem } from './model.js';
+import type { CommuteIcon, TaskItem } from './model.js';
 
 export function Icon({ name, size }: { name: UiIcon; size: number }) {
   return <span class="icon" dangerouslySetInnerHTML={{ __html: iconSvg(name, size) }} />;
 }
+
+/** What stands for a commute destination. */
+export const COMMUTE_ICONS: Record<CommuteIcon, UiIcon> = { work: 'briefcase', school: 'school' };
 
 /** Feedback banner: black with a check mark for success, outlined otherwise; optional «Rückgängig» or «Dringend» button. */
 export function NoticeBar({ notice, undo, urgent }: { notice: Notice; undo?: boolean; urgent?: boolean }) {

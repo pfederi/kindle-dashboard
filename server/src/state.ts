@@ -19,6 +19,7 @@ export type Action =
   | { type: 'done'; key: string }
   | { type: 'undo' }
   | { type: 'station'; index: number }
+  | { type: 'commute'; index: number }
   | { type: 'guest' }
   | { type: 'day' }
   | { type: 'task'; key: string }
@@ -56,7 +57,6 @@ export function parseAction(s: string): Action | null {
   if (s === 'page:prev') return { type: 'page', delta: -1 };
   if (s === 'nav:aufgabe') return { type: 'nav', view: 'hinzufuegen', mode: 'aufgabe' };
   if (s === 'weather') return { type: 'nav', view: 'wetter' };
-  if (s === 'commute') return { type: 'nav', view: 'arbeitsweg' };
   const i = s.indexOf(':');
   if (i < 0) return null;
   const kind = s.slice(0, i);
@@ -72,6 +72,7 @@ export function parseAction(s: string): Action | null {
   if (kind === 'urgent') return arg ? { type: 'urgent', key: arg } : null;
   if (kind === 'tab') return arg === 'einkauf' || arg === 'aufgabe' ? { type: 'tab', mode: arg } : null;
   if (kind === 'station') return /^\d{1,2}$/.test(arg) ? { type: 'station', index: Number(arg) } : null;
+  if (kind === 'commute') return /^\d$/.test(arg) ? { type: 'commute', index: Number(arg) } : null;
   return null;
 }
 
@@ -88,6 +89,8 @@ export interface DeviceState {
   tiles: string[] | null;
   /** Index of the station shown in the station view. */
   station: number;
+  /** Destination shown in «Arbeitsweg» (0 work, 1 school). */
+  commute: number;
   /** Tab of «Hinzufügen». */
   addMode: AddMode;
   /** Page of «Einkauf», from 0; back to 0 whenever «Einkauf» is opened. */
@@ -114,6 +117,7 @@ export function initialState(now: number): DeviceState {
     added: [],
     tiles: null,
     station: 0,
+    commute: 0,
     addMode: 'einkauf',
     einkaufPage: 0,
     urgentOffer: null,

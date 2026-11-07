@@ -266,7 +266,7 @@ describe('Dashboard', () => {
 
   it('adds the walk to the scooter to the ride: door to door, also for the arrival time', async () => {
     const { dash, renderer, src } = setup();
-    (src as { commute?: unknown }).commute = { label: 'Zur Arbeit', walkMinutes: 5, get: vi.fn(async () => ({ minutes: 18, delayMinutes: 4 })) };
+    src.commutes = [{ label: 'Zur Arbeit', icon: 'work', walkMinutes: 5, get: vi.fn(async () => ({ minutes: 18, delayMinutes: 4 })), route: vi.fn(async () => null) }];
     await dash.screen();
     expect(renderer.lastHtml).toContain('<b>23 Min.</b><span>an 08:03</span><b class="late">+4 Min. Stau</b>');
   });
@@ -278,10 +278,10 @@ describe('Dashboard', () => {
       view: { lat: 47.385, lon: 8.53, zoom: 13 },
       image: null,
     }));
-    (src as { commute?: unknown }).commute = { label: 'Ins Büro', walkMinutes: 2, get: vi.fn(async () => ({ minutes: 18, delayMinutes: 0 })), route };
+    src.commutes = [{ label: 'Ins Büro', icon: 'work', walkMinutes: 2, get: vi.fn(async () => ({ minutes: 18, delayMinutes: 0 })), route }];
     await dash.screen();
-    expect(renderer.lastHtml).toContain('<div class="commute" data-action="commute">');
-    const opened = await tapAction('commute');
+    expect(renderer.lastHtml).toContain('<div class="commute" data-action="commute:0">');
+    const opened = await tapAction('commute:0');
     expect(dash.view).toBe('arbeitsweg');
     expect(opened?.fullRefresh).toBe(true);
     expect(route).toHaveBeenCalledOnce();
@@ -293,6 +293,36 @@ describe('Dashboard', () => {
     // The preview can act out a jam on the real route.
     expect(await dash.previewHtml('arbeitsweg')).toContain('Verkehr wie üblich');
     expect(await dash.previewHtml('arbeitsweg', { jam: true })).toContain('+7 Min. Stau');
+  });
+
+  it('opens the school from its part of the line, and switches between the tabs with a full refresh', async () => {
+    const { dash, renderer, src, tapAction } = setup();
+    const detail = (minutes: number) => ({
+      routes: [{ minutes, delayMinutes: 0, stretches: [{ points: [[47.41, 8.54], [47.36, 8.52]] as [number, number][], ratio: 1, name: 'A', length: 10 }] }],
+      view: { lat: 47.385, lon: 8.53, zoom: 13 },
+      image: null,
+    });
+    const work = vi.fn(async () => detail(18));
+    const school = vi.fn(async () => detail(11));
+    src.commutes = [
+      { label: 'Zur Arbeit', icon: 'work', get: vi.fn(async () => ({ minutes: 18, delayMinutes: 0 })), route: work },
+      { label: 'Schule', icon: 'school', badge: 'LE', get: vi.fn(async () => ({ minutes: 11, delayMinutes: 0 })), route: school },
+    ];
+    await dash.screen();
+    expect(renderer.lastHtml).toContain('<span class="dest" data-action="commute:1"><span class="cal">LE</span>');
+    await tapAction('commute:1');
+    expect(dash.view).toBe('arbeitsweg');
+    expect(school).toHaveBeenCalledOnce();
+    expect(work).not.toHaveBeenCalled();
+    expect(renderer.lastHtml).toContain('<div class="seg on" data-action="commute:1">');
+    expect(renderer.lastHtml).toContain('<b>11 Min.</b>');
+    const swapped = await tapAction('commute:0');
+    expect(swapped?.fullRefresh).toBe(true);
+    expect(renderer.lastHtml).toContain('<div class="seg on" data-action="commute:0">');
+    expect(renderer.lastHtml).toContain('<b>18 Min.</b>');
+    // The same tab again: nothing to swap, no flash.
+    expect((await tapAction('commute:0'))?.fullRefresh).toBe(false);
+    expect(await dash.previewHtml('arbeitsweg', { commute: 1 })).toContain('<b>11 Min.</b>');
   });
 
   it('previews «Arbeitsweg» without a commute configured, and leaves the device where it is', async () => {

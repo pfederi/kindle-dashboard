@@ -17,7 +17,7 @@ export interface DashboardLike {
 const VIEWS: ViewName[] = ['heute', 'woche', 'einkauf', 'hinzufuegen', 'wetter', 'station', 'arbeitsweg'];
 
 /** Links to every view as HTML (layout size) and as the PNG the Kindle gets. */
-function previewIndex(stations: string[]): string {
+function previewIndex(stations: string[], commutes: string[]): string {
   const entries: [string, string, string][] = [
     ['Heute', 'heute', ''],
     ['Heute am Abend (ab 19 Uhr)', 'heute', 'abend=1'],
@@ -29,8 +29,10 @@ function previewIndex(stations: string[]): string {
     ['Einkauf', 'einkauf', ''],
     ['Hinzufügen', 'hinzufuegen', ''],
     ['Wetter', 'wetter', ''],
-    ['Arbeitsweg: Route mit Verkehr', 'arbeitsweg', ''],
-    ['Arbeitsweg mit Stau (nachgestellt)', 'arbeitsweg', 'stau=1'],
+    ...(commutes.length > 0 ? commutes : ['Zur Arbeit']).flatMap((label, i): [string, string, string][] => [
+      [`Arbeitsweg ${label}`, 'arbeitsweg', `ziel=${i}`],
+      [`Arbeitsweg ${label} mit Stau (nachgestellt)`, 'arbeitsweg', `ziel=${i}&amp;stau=1`],
+    ]),
     ...stations.map((name, i): [string, string, string] => [`Haltestelle ${name}`, 'station', `station=${i}`]),
   ];
   const status = '<li><a href="/preview/status">Status: Kindle, Akku, Datenquellen</a></li><li><a href="/preview/nacht">Nachtbildschirm: Mondphasen und Feiertage</a></li>';
@@ -74,6 +76,8 @@ export function buildApp(opts: {
   previewPassword: string;
   /** Station names for the preview index. */
   stations?: string[];
+  /** Commute destinations («Zur Arbeit», «Schule») for the preview index. */
+  commutes?: string[];
   /** Called with the battery state the Kindle sends along with a screen request. */
   onBattery?: (b: Battery) => void;
   /** The status page under /preview/status. */
@@ -165,7 +169,7 @@ export function buildApp(opts: {
     },
   );
 
-  app.get('/preview', { onRequest: previewAuth }, async (_req, reply) => reply.header('Content-Type', 'text/html; charset=utf-8').send(previewIndex(opts.stations ?? [])));
+  app.get('/preview', { onRequest: previewAuth }, async (_req, reply) => reply.header('Content-Type', 'text/html; charset=utf-8').send(previewIndex(opts.stations ?? [], opts.commutes ?? [])));
 
   app.get('/preview/status', { onRequest: previewAuth }, async (_req, reply) => {
     if (!opts.statusHtml) return reply.code(404).send();
@@ -178,7 +182,7 @@ export function buildApp(opts: {
 
   app.get<{
     Params: { view: string };
-    Querystring: { png?: string; station?: string; abend?: string; nacht?: string; gast?: string; akku?: string; mond?: string; feiertag?: string; stau?: string };
+    Querystring: { png?: string; station?: string; abend?: string; nacht?: string; gast?: string; akku?: string; mond?: string; feiertag?: string; stau?: string; ziel?: string };
   }>(
     '/preview/:view',
     { onRequest: previewAuth },
@@ -187,6 +191,8 @@ export function buildApp(opts: {
       if (!VIEWS.includes(view)) return reply.code(404).send();
       const station = req.query.station;
       if (station !== undefined && !/^\d{1,2}$/.test(station)) return reply.code(400).send();
+      const ziel = req.query.ziel;
+      if (ziel !== undefined && !/^\d$/.test(ziel)) return reply.code(400).send();
       const { mond, feiertag } = req.query;
       if (mond !== undefined && !(/^\d{1,3}$/.test(mond) && Number(mond) < 360)) return reply.code(400).send();
       if (feiertag !== undefined && !Object.hasOwn(HOLIDAYS, feiertag)) return reply.code(400).send();
@@ -199,6 +205,7 @@ export function buildApp(opts: {
         moon: mond === undefined ? undefined : Number(mond),
         holiday: feiertag as HolidayId | undefined,
         jam: req.query.stau === '1',
+        commute: ziel === undefined ? undefined : Number(ziel),
       };
       if (req.query.png === '1') return reply.header('Content-Type', 'image/png').send(await opts.dashboard.previewPng(view, previewOpts));
       return reply.header('Content-Type', 'text/html; charset=utf-8').send(await opts.dashboard.previewHtml(view, previewOpts));

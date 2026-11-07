@@ -73,6 +73,12 @@ html,body{width:${LAYOUT.width}px;height:${LAYOUT.height}px;overflow:hidden;back
 .commute .icon{margin:-3px 0}
 .commute .none{color:#555}
 .commute .late{background:#000;color:#fff;border-radius:6px;padding:0 10px}
+/* Two destinations: a short divider after the scooter, then an icon per destination. */
+.commute .sep{width:3px;height:40px;background:#000;flex:none}
+.commute .dest{display:flex;align-items:center;gap:12px}
+.commute .dest + .dest{margin-left:30px}
+/* Whose ride, drawn like the calendar abbreviations. */
+.commute .cal,.view-arbeitsweg .seg .cal{font-size:28px;line-height:36px;border:3px solid currentColor;border-radius:8px;padding:0 9px;flex:none}
 .ov{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
 .ov .col{padding:0 22px;border-right:2px solid #999;min-width:0}
 .ov .col:first-child{padding-left:0}
@@ -232,6 +238,7 @@ html,body{width:${LAYOUT.width}px;height:${LAYOUT.height}px;overflow:hidden;back
 .aw-alt{stroke-width:6;stroke-dasharray:1 13;stroke-linecap:round}
 .aw-from{fill:#000;stroke:#fff;stroke-width:7}
 .aw-to{fill:#fff;stroke:#000;stroke-width:9}
+.view-arbeitsweg .segs .seg{display:flex;align-items:center;gap:12px}
 .aw-time{font-size:40px;margin-top:22px}
 .aw-time b{font-size:64px}
 .aw-row{font-size:36px;margin-top:8px}
