@@ -164,6 +164,8 @@ function Board({ board, index, now }: { board: BoardModel; index: number; now: D
 
 /** Event rows the commute line takes from the agenda. */
 export const COMMUTE_ROWS = 1;
+/** The motorbike fills only 15 of its 24 units in height: at 52 px its ink is as tall as the 38 px text. */
+const SCOOTER_ICON = 52;
 /** Below this, a delay is noise and not shown. */
 export const COMMUTE_DELAY_MIN = 3;
 
@@ -171,7 +173,7 @@ export const COMMUTE_DELAY_MIN = 3;
 function CommuteLine({ label, travel, now }: { label: string; travel: Commute | null; now: Date }) {
   return (
     <div class="commute">
-      <Icon name="scooter" size={40} />
+      <Icon name="scooter" size={SCOOTER_ICON} />
       <span>{label}</span>
       {travel === null ? (
         <span class="none">keine Verkehrsdaten</span>
