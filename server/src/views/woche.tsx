@@ -6,41 +6,7 @@ import { EventList, GuestMark, Icon, Tabs } from './components.js';
 import type { WocheModel } from './model.js';
 import { page } from './page.js';
 
-/** Layout px, matching `.week` in styles.ts: the space between the meta line and the tabs, and the heights inside one row. */
-const WEEK_HEIGHT = 1140;
-const ROW_CHROME = 23; // border-top 3 + padding 2 × 10
-const EV_LINE = 46;
-const MORE_LINE = 40;
-const WEATHER_LINE = 34;
-
-type WeekDay = NonNullable<WocheModel['days']>[number];
-
-/** Height of a row whose event list is capped at `max` lines (see EventList). */
-function rowHeight(d: WeekDay, max: number): number {
-  const n = d.entries.length;
-  const label = EV_LINE + (d.weather ? WEATHER_LINE : 0);
-  let events = EV_LINE; // the dash, or one line with an inline «+ N»
-  if (n > 1 && n <= max) events = n * EV_LINE;
-  else if (n > max && max >= 2) events = (max - 1) * EV_LINE + MORE_LINE;
-  return Math.max(label, events) + ROW_CHROME;
-}
-
-/**
- * Lines per day: from the top down every day shows all its events as long as
- * the remaining days still fit with one line each; only further down, where
- * space runs out, are the events summarised as «+ N weitere».
- */
-export function eventCaps(days: WeekDay[]): number[] {
-  const min = days.map((d) => rowHeight(d, 1));
-  let left = WEEK_HEIGHT;
-  return days.map((d, i) => {
-    const room = left - min.slice(i + 1).reduce((a, b) => a + b, 0);
-    let max = Math.max(1, d.entries.length);
-    while (max > 1 && rowHeight(d, max) > room) max--;
-    left -= rowHeight(d, max);
-    return max;
-  });
-}
+export const MAX_EVENTS_PER_DAY = 3;
 
 function part(d: Date, opts: Intl.DateTimeFormatOptions): string {
   return d.toLocaleDateString('de-CH', { ...opts, timeZone: 'Europe/Zurich' });
@@ -73,7 +39,6 @@ function DayWeather({ w }: { w: DailyWeather }) {
 
 function Woche({ m }: { m: WocheModel }) {
   const today = startOfDay(m.now).getTime();
-  const caps = m.days ? eventCaps(m.days) : [];
   return (
     <div class="screen view-woche">
       <div class="main">
@@ -91,7 +56,7 @@ function Woche({ m }: { m: WocheModel }) {
           <div class="empty" style="margin-top:30px">Termine: keine Daten</div>
         ) : (
           <div class="week" data-hold="guest">
-            {m.days.map((d, i) => {
+            {m.days.map((d) => {
               const isToday = startOfDay(d.date).getTime() === today;
               return (
                 <>
@@ -100,7 +65,7 @@ function Woche({ m }: { m: WocheModel }) {
                     {d.weather && <DayWeather w={d.weather} />}
                   </div>
                   <div class={isToday ? 'entries today' : 'entries'}>
-                    {d.entries.length === 0 ? <div class="dash">—</div> : <EventList entries={d.entries} max={caps[i]!} />}
+                    {d.entries.length === 0 ? <div class="dash">—</div> : <EventList entries={d.entries} max={MAX_EVENTS_PER_DAY} />}
                   </div>
                 </>
               );
