@@ -271,6 +271,33 @@ describe('Dashboard', () => {
     expect(renderer.lastHtml).toContain('<b>23 Min.</b><span>an 08:03</span><b class="late">+4 Min. Stau</b>');
   });
 
+  it('opens «Arbeitsweg» from the commute line, and closes back to Heute', async () => {
+    const { dash, renderer, src, tapAction } = setup();
+    const route = vi.fn(async () => ({
+      routes: [{ minutes: 18, delayMinutes: 0, stretches: [{ points: [[47.41, 8.54], [47.36, 8.52]] as [number, number][], ratio: 1, name: 'A', length: 10 }] }],
+      view: { lat: 47.385, lon: 8.53, zoom: 13 },
+      image: null,
+    }));
+    (src as { commute?: unknown }).commute = { label: 'Ins Büro', walkMinutes: 2, get: vi.fn(async () => ({ minutes: 18, delayMinutes: 0 })), route };
+    await dash.screen();
+    expect(renderer.lastHtml).toContain('<div class="commute" data-action="commute">');
+    const opened = await tapAction('commute');
+    expect(dash.view).toBe('arbeitsweg');
+    expect(opened?.fullRefresh).toBe(true);
+    expect(route).toHaveBeenCalledOnce();
+    expect(renderer.lastHtml).toContain('<div class="title serif">Ins Büro</div>');
+    expect(renderer.lastHtml).toContain('<b>20 Min.</b> an 08:00');
+    const back = await tapAction('close');
+    expect(dash.view).toBe('heute');
+    expect(back?.fullRefresh).toBe(true);
+  });
+
+  it('previews «Arbeitsweg» without a commute configured, and leaves the device where it is', async () => {
+    const { dash } = setup();
+    expect(await dash.previewHtml('arbeitsweg')).toContain('keine Verkehrsdaten');
+    expect(dash.view).toBe('heute');
+  });
+
   it('previews a low battery', async () => {
     const { dash } = setup();
     expect(await dash.previewHtml('heute')).not.toContain('class="batt"');

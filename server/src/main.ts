@@ -18,6 +18,7 @@ import { CalendarSource } from './sources/calendar.js';
 import { TransitSource } from './sources/transit.js';
 import { fetchLakeTemp } from './sources/lake.js';
 import { fetchCommute } from './sources/commute.js';
+import { CommuteRouteSource } from './sources/commute-route.js';
 import { fetchWaste } from './sources/waste.js';
 import { fetchWeather } from './sources/weather.js';
 
@@ -34,6 +35,9 @@ async function main(): Promise<void> {
   // Scooter travel time with traffic; 5 minutes, and only fetched while Heute is shown (not at night).
   const commuteConfig = config.commute;
   const commuteCache = commuteConfig ? new TtlCache(5 * 60_000, () => fetchCommute(fetchFn, commuteConfig), clock, 'commute') : null;
+  // Route and map for «Arbeitsweg»: only fetched when the screen is opened; a second look within 2 minutes reuses them.
+  const routeSource = commuteConfig ? new CommuteRouteSource(fetchFn, commuteConfig) : null;
+  const routeCache = routeSource ? new TtlCache(2 * 60_000, () => routeSource.load(), clock, 'commute:route') : null;
 
   let bring = disabledBring;
   let tasks: ShoppingSource | undefined;
@@ -74,7 +78,14 @@ async function main(): Promise<void> {
       bring,
       tasks,
       commute:
-        commuteConfig && commuteCache ? { label: commuteConfig.label, walkMinutes: commuteConfig.walkMinutes, get: async (force) => (await commuteCache.get(force))?.value ?? null } : undefined,
+        commuteConfig && commuteCache && routeCache
+          ? {
+              label: commuteConfig.label,
+              walkMinutes: commuteConfig.walkMinutes,
+              get: async (force) => (await commuteCache.get(force))?.value ?? null,
+              route: async (force) => (await routeCache.get(force))?.value ?? null,
+            }
+          : undefined,
     },
     renderer,
     clock,

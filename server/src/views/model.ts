@@ -2,6 +2,7 @@ import type { DayEntry } from '../sources/calendar.js';
 import type { ShoppingData } from '../sources/bring/source.js';
 import type { Holiday } from '../holidays.js';
 import type { Commute } from '../sources/commute.js';
+import type { CommuteDetail } from '../sources/commute-route.js';
 import type { Departure } from '../sources/transit.js';
 import type { DailyWeather, Weather } from '../sources/weather.js';
 import type { AddMode, Notice } from '../state.js';
@@ -66,6 +67,16 @@ export interface StationModel {
   outbound: Departure[] | null;
   /** Most frequent outbound terminus, e.g. «Seebach». */
   outboundTo: string | null;
+}
+
+export interface ArbeitswegModel {
+  now: Date;
+  /** Title, e.g. «Zur Arbeit». */
+  label: string;
+  /** Minutes on foot to the scooter, added to every ride. */
+  walk: number;
+  /** null = no data. */
+  detail: CommuteDetail | null;
 }
 
 export interface WocheModel {

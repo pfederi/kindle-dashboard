@@ -29,6 +29,7 @@ Ein alter Kindle als Info-Bildschirm für den Eingang: Wetter, Termine, Abfahrte
 | **Heute** | Datum, Wetter (aktuell, Max/Min, Zürichsee-Temperatur, Regenhinweis und 12-Stunden-Regenband), Termine des Tages inkl. Papier- und Kartonsammlung, Abfahrten an drei Haltestellen Richtung Stadt, Bring!-Liste mit dem zuletzt erfassten Artikel zuerst. An Geburtstagen gross «Happy Birthday …!» mit Kuchen über den Terminen. Offene Aufgaben (Bring!-Liste «Aufgaben») in einer schwarzen Box über den Terminen, daneben «+ Aufgabe». Ab 19 Uhr: verbleibende Termine des Abends, die Termine von morgen und das Wetter von morgen. |
 | **Wetter** | Gefühlte Temperatur, Feuchtigkeit, Sonnenauf- und -untergang, Seetemperatur; 24-Stunden-Grafik mit Wettersymbolen, Temperaturkurve, Regen und Wind; Windrose (Knoten), Barometer mit Tendenz; 7 Tage mit Min/Max und wann es regnet. |
 | **Haltestelle** | Pro Haltestelle die nächsten 8 Abfahrten in beide Richtungen mit tatsächlicher Endhaltestelle. |
+| **Arbeitsweg** | Antippen der Roller-Zeile: Karte mit der Route, Stau als dicker Balken, stockender Verkehr gestrichelt, die Alternativroute gepunktet; darunter Fahrzeit mit Ankunft, wo der Stau ist («+7 Min. Stau Hardbrücke») und die Alternative mit ihrer Fahrzeit. |
 | **Woche** | Die nächsten 7 Tage ab heute mit Terminen, Entsorgung und Wetter. Im Gast-Modus wie «Heute» mit geschwärzten Titeln. |
 | **Einkauf** | Die Bring!-Liste; Antippen hakt einen Artikel ab, mit «Rückgängig». Der rennende Mann rechts auf der Kachel setzt «Dringend»; dringende Artikel stehen zuerst und schwarz, auch im Widget in «Heute». 10 Artikel pro Seite, unten «‹ Zurück · Seite 1 von 3 · Weiter ›». |
 | **Hinzufügen** | Artikel per Bildschirmtastatur, Vorschlägen oder 15 «Oft gekauft»-Kacheln erfassen. Im Reiter «Aufgabe» Aufgaben erfassen, mit «Häufig»-Kacheln. |
@@ -37,11 +38,12 @@ Ein alter Kindle als Info-Bildschirm für den Eingang: Wetter, Termine, Abfahrte
   <img src="docs/screenshots/heute-abend.png" width="160" alt="Heute am Abend">
   <img src="docs/screenshots/nacht.png" width="160" alt="Nachtbildschirm">
   <img src="docs/screenshots/haltestelle.png" width="160" alt="Haltestelle">
+  <img src="docs/screenshots/arbeitsweg.png" width="160" alt="Arbeitsweg mit Stau">
   <img src="docs/screenshots/einkauf.png" width="160" alt="Einkauf">
   <img src="docs/screenshots/hinzufuegen.png" width="160" alt="Hinzufügen">
 </p>
 
-Verspätungen ab 5 Minuten werden schwarz hinterlegt. Optional steht über den Abfahrten die Fahrzeit mit dem Roller (125 cm³) zur Arbeit beim aktuellen Verkehr, z. B. «Zur Arbeit **18 Min.** an 07:58», ab 3 Minuten mehr als üblich mit «+4 Min. Stau» (`HERE_API_KEY`, `COMMUTE_FROM`, `COMMUTE_TO`). Abfahrten, die man zu Fuss nicht mehr erreicht, sind grau; über jeder Haltestelle steht, wann man losgehen muss («los 07:45»). In der Nachtruhe (Standard 00:00–05:30) zeigt das Dashboard einen ruhigen Nachtbildschirm mit dem Wichtigsten des kommenden Tages; der Kindle schaltet dann das WLAN aus, um Akku zu sparen. Ein Tap weckt es wieder (das dauert ein paar Sekunden), beim Beenden des Dashboards ist es wieder an. Ohne Bedienung kehrt das Dashboard nach 2 Minuten zu «Heute» zurück. Fällt der Akku auf 20 % oder weniger und hängt der Kindle nicht am Strom, steht oben rechts in «Heute» und auf dem Nachtbildschirm ein leerer Akku mit dem Ladestand.
+Verspätungen ab 5 Minuten werden schwarz hinterlegt. Optional steht über den Abfahrten die Fahrzeit mit dem Roller (125 cm³) zur Arbeit beim aktuellen Verkehr, z. B. «Zur Arbeit **18 Min.** an 07:58», ab 3 Minuten mehr als üblich mit «+4 Min. Stau» (`HERE_API_KEY`, `COMMUTE_FROM`, `COMMUTE_TO`); Antippen öffnet die Karte «Arbeitsweg». Abfahrten, die man zu Fuss nicht mehr erreicht, sind grau; über jeder Haltestelle steht, wann man losgehen muss («los 07:45»). In der Nachtruhe (Standard 00:00–05:30) zeigt das Dashboard einen ruhigen Nachtbildschirm mit dem Wichtigsten des kommenden Tages; der Kindle schaltet dann das WLAN aus, um Akku zu sparen. Ein Tap weckt es wieder (das dauert ein paar Sekunden), beim Beenden des Dashboards ist es wieder an. Ohne Bedienung kehrt das Dashboard nach 2 Minuten zu «Heute» zurück. Fällt der Akku auf 20 % oder weniger und hängt der Kindle nicht am Strom, steht oben rechts in «Heute» und auf dem Nachtbildschirm ein leerer Akku mit dem Ladestand.
 
 **Gast-Modus:** Wenn Besuch da ist, sind alle Termintitel schwarz überdeckt; Uhrzeit, Kalenderkürzel und Papier-/Kartonsammlung bleiben stehen, ein Schloss neben dem Titel zeigt den Modus an. Er schaltet sich selbst ein, solange ein Termin läuft, dessen Titel mit «Besuch» beginnt (z. B. «Besuch Müllers» 18–23 Uhr) – dieser Termin selbst bleibt lesbar. Von Hand: siehe [Bedienung](#bedienung).
 
@@ -281,6 +283,7 @@ Go 1.23, gebaut und getestet in Docker (`make test`, `make build`). Ein statisch
 | Einkaufsliste | Bring! (inoffizielle API der Apps, wie [bring-api](https://github.com/miaucl/bring-api)) |
 | Termine | iCal-Adressen der Kalender |
 | Roller-Fahrzeit | [HERE Routing API v8](https://www.here.com/docs/bundle/routing-api-developer-guide-v8/page/README.html), Modus `scooter` mit Echtzeitverkehr |
+| Karte «Arbeitsweg» | [HERE Map Image API v3](https://docs.here.com/map-rendering/docs/introduction-map-image-api), Stil `lite.day`; Route und Stau zeichnet der Server selbst |
 | Symbole | [Lucide](https://lucide.dev); rennender Mann aus [Tabler Icons](https://tabler.io/icons) (MIT) |
 
 ## Architektur

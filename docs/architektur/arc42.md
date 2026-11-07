@@ -110,7 +110,8 @@ flowchart LR
 | Betreiber | sieht alle Ansichten unter `/preview` |
 | Open-Meteo | aktuelles Wetter, stündlich und täglich für 7 Tage (Temperatur, Regen, Wind in Knoten, Luftdruck, Sonnenzeiten) |
 | Alplakes (Eawag) | Oberflächentemperatur des Zürichsees (Simstrat-Modell) |
-| HERE Routing | Fahrzeit mit dem Roller (Modus `scooter`, Autobahn wählbar) mit Echtzeitverkehr und üblicher Fahrzeit |
+| HERE Routing | Fahrzeit mit dem Roller (Modus `scooter`, Autobahn wählbar) mit Echtzeitverkehr und üblicher Fahrzeit; für «Arbeitsweg» zusätzlich Verlauf, Tempo pro Abschnitt, Strassennamen und eine Alternative |
+| HERE Map Image | Hintergrundkarte für «Arbeitsweg» (Stil `lite.day`, Schrift doppelt gross) |
 | Kalender | geheime iCal-Adressen, ein Kürzel pro Kalender |
 | transport.opendata.ch | Abfahrtstafeln (Linie, Zeit, Verspätung, Endhaltestelle, Zwischenhalte) |
 | OpenERZ | Sammeltermine Papier und Karton für eine Postleitzahl |
@@ -141,6 +142,7 @@ flowchart LR
 | `GET /healthz` | HTTPS | `ok` für den Healthcheck |
 | `GET /preview`, `/preview/:view` | HTTPS, Basic Auth (`admin`) | Übersicht, HTML oder PNG einer Ansicht (`?png=1`, `?station=N`, `?abend=1`, `?nacht=1`, `?akku=1`, `?mond=0–359`, `?feiertag=neujahr|ostern|august|weihnachten`); `/preview/nacht` mit allen Mondphasen und Feiertagen; `/preview/status` mit Kindle, Akkukurve und Datenquellen |
 | HERE (ausgehend) | HTTPS `GET router.hereapi.com/v8/routes?transportMode=scooter&return=summary,typicalDuration` mit `apiKey` | Fahrzeit und übliche Fahrzeit; alle 5 Min., nur solange «Heute» abgefragt wird; Fehler nennen nie die Adresse (Schlüssel) |
+| HERE «Arbeitsweg» (ausgehend) | HTTPS `GET router.hereapi.com/v8/routes?…&return=polyline,summary,typicalDuration&spans=dynamicSpeedInfo,names,length&alternatives=1`, `GET image.maps.hereapi.com/mia/v3/base/mc/center:…;zoom=…/1106x1076/png?style=lite.day&ppi=200` | Nur beim Öffnen von «Arbeitsweg», Route höchstens alle 2 Min.; die Karte eines Ausschnitts wird einmal geholt und behalten (bis 8 Ausschnitte); ohne Karte wird die Route auf Weiss gezeichnet |
 | ntfy (ausgehend) | HTTPS `POST <NTFY_SERVER>/<NTFY_TOPIC>` | Meldung «Kindle meldet sich nicht» bzw. «wieder online», «Kindle-Akku fast leer», bei 5 % «Kindle-Akku: JETZT LADEN» |
 
 Alle Antworten tragen HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` und `Referrer-Policy: no-referrer`; die Vorschau zusätzlich `Cache-Control: no-store` und eine Content-Security-Policy ohne Skripte und fremde Inhalte.
@@ -195,11 +197,11 @@ flowchart TB
 | HTTP-API | `app.ts`, `main.ts` | Routen, Authentifizierung, Verdrahtung, Herunterfahren |
 | Konfiguration | `config.ts` | Umgebungsvariablen lesen und prüfen (Kalender, Haltestellen, Geburtstage, Nachtruhe, …); Fehler nennen nie geheime Werte |
 | Dashboard | `dashboard.ts` | Zustand (Ansicht, Eingabe, Meldungen, Gast-Schalter), Taps und Langdrücke auf Aktionen abbilden, Daten je Ansicht zusammenstellen (inkl. Gast-Modus und Geburtstage des Tages), Vorschau |
-| Zustand | `state.ts`, `zones.ts` | Ansichten, Aktionen (`nav:`, `key:`, `add:`, `done:`, `station:`, `weather`, `guest`, …), Navigation, Rückkehr nach Inaktivität, Aktualisierungsrhythmus, Tap- und Langdruck-Bereiche |
+| Zustand | `state.ts`, `zones.ts` | Ansichten, Aktionen (`nav:`, `key:`, `add:`, `done:`, `station:`, `weather`, `commute`, `guest`, …), Navigation, Rückkehr nach Inaktivität, Aktualisierungsrhythmus, Tap- und Langdruck-Bereiche |
 | Gast-Modus | `guest.ts` | Wann Termintitel verborgen werden («Besuch»-Termine, Langdruck), Titel durch Balken ersetzen, Gästenamen aus den «Besuch»-Terminen |
 | Begrüssung | `views/heute.tsx`, `views/qr.ts` | «Herzlich willkommen …!» mit QR-Code fürs Gäste-WLAN statt der Termine in «Heute» im Gast-Modus |
 | Status | `status.ts`, `health.ts`, `views/status.tsx` | Letzte Abfrage und Akkuverlauf des Kindle, Erfolg und Fehler jeder Datenquelle (aus `TtlCache`); Seite `/preview/status` |
-| Datenquellen | `sources/weather.ts`, `lake.ts`, `calendar.ts`, `transit.ts`, `waste.ts`, `commute.ts`, `bring/` | Abruf und Aufbereitung je Quelle; Bring! mit zwei Listen (Einkauf, Aufgaben) über eine Anmeldung |
+| Datenquellen | `sources/weather.ts`, `lake.ts`, `calendar.ts`, `transit.ts`, `waste.ts`, `commute.ts`, `commute-route.ts`, `bring/` | Abruf und Aufbereitung je Quelle; Bring! mit zwei Listen (Einkauf, Aufgaben) über eine Anmeldung |
 | Zwischenspeicher | `cache.ts` | Ablaufzeit, Rückfall auf ältere Werte, gleichzeitige Abfragen bündeln |
 | Überwachung | `monitor.ts` | Merkt sich nach jedem Bild, wann der Kindle wiederkommen soll; meldet Ausfall und Rückkehr über ntfy, ebenso einen Akku ab 20 % |
 | Ansichten | `views/*.tsx`, `styles.ts`, `icons.ts` | Heute, Woche, Einkauf, Hinzufügen, Wetter, Haltestelle als Preact-Komponenten; SVG-Grafiken; gemeinsame Bausteine wie Terminliste (mit Balken im Gast-Modus) und Geburtstagsbanner in `components.tsx` |
@@ -375,13 +377,13 @@ flowchart LR
 
 ### 8.2 E-Ink-Bildwechsel
 
-- Teilweiser Bildwechsel im Normalfall; **voller Bildwechsel** beim ersten Bild, stündlich, beim Betreten und Verlassen von Overlays (Hinzufügen, Haltestelle, Wetter), nach Statusanzeigen, beim Tab ⟳ und beim Umschalten des Gast-Modus (als sichtbare Bestätigung; beim Gast-Modus verschwinden so auch Geisterbilder der Titel).
+- Teilweiser Bildwechsel im Normalfall; **voller Bildwechsel** beim ersten Bild, stündlich, beim Betreten und Verlassen von Overlays (Hinzufügen, Haltestelle, Wetter, Arbeitsweg), nach Statusanzeigen, beim Tab ⟳ und beim Umschalten des Gast-Modus (als sichtbare Bestätigung; beim Gast-Modus verschwinden so auch Geisterbilder der Titel).
 - Gleiches ETag ohne Vollbild-Wunsch → kein Neuzeichnen.
 
 ### 8.3 Zustand und Navigation
 
 - Der Server führt **einen** Gerätezustand: Ansicht, Rückkehr-Tab, Eingabe, Meldung, abgehakter Artikel (für «Rückgängig»), eingefrorene «Oft gekauft»-Kacheln, gewählte Haltestelle, Reiter von «Hinzufügen» (Einkauf/Aufgabe), eben erfasster Artikel (für «🏃 Dringend» in der Meldung), Seite von «Einkauf», Gast-Schalter.
-- Overlays (Hinzufügen, Haltestelle, Wetter) merken sich den Tab, von dem sie geöffnet wurden.
+- Overlays (Hinzufügen, Haltestelle, Wetter, Arbeitsweg) merken sich den Tab, von dem sie geöffnet wurden.
 - Nach 2 Minuten ohne Tap kehrt die Anzeige zu «Heute» zurück; ausserhalb von «Heute» plant der Server die nächste Abfrage genau auf diesen Zeitpunkt. Ab 19 Uhr wechselt «Heute» in den Abendmodus, in der Nachtruhe (Standard 00:00–05:30) in den Nachtbildschirm. Der Kindle schaltet dann das WLAN aus und erst zur nächsten Abfrage oder bei einem Tap wieder ein (etwa 6 s).
 - **Akku:** Der Kindle schickt mit jeder Bildabfrage `X-Battery` und `X-Charging`. Bei 20 % oder weniger ohne Netzteil zeigen «Heute» und der Nachtbildschirm den Ladestand im Kopf; `BatteryMonitor` meldet einmal «fast leer» und bei 5 % dringend «JETZT LADEN», erneut erst nach dem Laden. Jede Änderung des Ladestands steht im Server-Log.
 - Abfahrten berücksichtigen den Fussweg pro Haltestelle (`walk`): nicht mehr erreichbare sind grau, die Losgeh-Zeit steht als Uhrzeit im Spaltenkopf. Als Uhrzeit, weil das Bild bis zu 2 Minuten alt sein kann.
@@ -455,6 +457,7 @@ flowchart LR
 | 27 | **Status-Seite ohne Speicher und ohne Skripte** | Kein Volume nötig; die strenge CSP der Vorschau bleibt; Tooltips über SVG-`<title>` | Verlauf beginnt nach jedem Deployment neu; höchstens 7 Tage |
 | 28 | **Roller-Fahrzeit über HERE** (Modus `scooter`) statt Google oder TomTom; Zeile über den Abfahrten, Verzögerung gegen die übliche Fahrzeit zur Tageszeit | Einziger Dienst mit eigenem Roller-Modus und Autobahn-Schalter für 125 cm³; grosszügiges Gratiskontingent | Kostet eine Terminzeile; Start und Ziel nur in Coolify; Trennlinien auf 3 px verschmälert, damit das Bild ruhiger bleibt |
 | 29 | **«Tag starten» per Tipp auf den Nachtbildschirm**, gültig bis zum Ende dieser Nachtruhe; Grüsse nachts erst ab Mitternacht; Mondphase lokal berechnet | Wer früher aufsteht, will nicht die Konfiguration ändern; ein Gruss für morgen um 22 Uhr wirkt verfrüht; keine weitere Datenquelle | Ein versehentlicher Tipp weckt das Dashboard bis zum Morgen (WLAN an); der Schalter liegt nur im Arbeitsspeicher |
+| 30 | **Karte «Arbeitsweg»: Hintergrund von HERE, Route und Stau als eigenes SVG** statt der Verkehrsebene eines Kartendienstes | Rot/Gelb/Grün wird in 16 Graustufen zu Grau; Dicke und Strichart bleiben lesbar; der Renderer blockiert jedes Netz, darum kommt die Karte als `data:`-URL; `ppi=200` vergrössert nur die Schrift, nicht den Massstab | Stau nur auf der eigenen Route, nicht auf Nebenstrassen; die Projektion (Web Mercator, 256-px-Kacheln) muss zum Kartenbild passen |
 
 ---
 
@@ -537,7 +540,7 @@ mindmap
 | **ETag** | Kennung eines Bildes; gleiches ETag → kein Neuzeichnen |
 | **FBInk** | Werkzeug, um Bilder direkt in den E-Ink-Framebuffer zu schreiben |
 | **KMC** | Kindle Modding Community; Werkzeuge nach dem Jailbreak |
-| **Overlay** | Ansicht ohne Tab mit «Schliessen» (Hinzufügen, Haltestelle, Wetter) |
+| **Overlay** | Ansicht ohne Tab mit «Schliessen» (Hinzufügen, Haltestelle, Wetter, Arbeitsweg) |
 | **pillow** | Statusleiste der Kindle-Oberfläche |
 | **SIRI-SX** | Standard für ÖV-Ereignismeldungen |
 | **Dringend** | Markierung eines Artikels in Bring! («Purchase condition» `urgent`) |

@@ -26,7 +26,7 @@ export function commuteUrl(c: CommuteConfig): string {
   return `https://router.hereapi.com/v8/routes?${q}`;
 }
 
-interface Summary {
+export interface Summary {
   duration?: unknown;
   baseDuration?: unknown;
   typicalDuration?: unknown;
@@ -36,6 +36,11 @@ interface Summary {
 export function parseCommute(json: unknown): Commute {
   const sections = (json as { routes?: { sections?: { summary?: Summary }[] }[] } | null)?.routes?.[0]?.sections;
   if (!Array.isArray(sections) || sections.length === 0) throw new Error('here: no route');
+  return sumSections(sections);
+}
+
+/** Travel time of one route from its sections. */
+export function sumSections(sections: { summary?: Summary }[]): Commute {
   let duration = 0;
   let usual = 0;
   for (const s of sections) {

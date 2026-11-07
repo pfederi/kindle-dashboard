@@ -4,6 +4,7 @@ import { Dashboard, type Sources } from '../src/dashboard.js';
 import type { Renderer } from '../src/render/renderer.js';
 import { type ShoppingData, type ShoppingSource, TASK_SUGGESTIONS } from '../src/sources/bring/source.js';
 import type { CalendarEvent } from '../src/sources/calendar.js';
+import { type CommuteDetail, type CommuteRoute, fitView, type LatLon, MAP_PX } from '../src/sources/commute-route.js';
 import type { Departure, StationBoard } from '../src/sources/transit.js';
 import type { Pickup } from '../src/sources/waste.js';
 import { heuteModel } from '../test/fixtures/models.js';
@@ -137,4 +138,48 @@ export function dashboard(renderer: Renderer, iso: string, events = EVENTS, birt
     },
   };
   return new Dashboard({ sources, renderer, clock: () => now, refreshSeconds: 120, quietHours: { start: 0, end: 330 }, viewResetSeconds: 120, birthdays });
+}
+
+/** Street, metres, simplified geometry: Oerlikon to Binz by scooter, as HERE routes it. */
+type Way = [name: string, metres: number, points: LatLon[]];
+const VIA_OERLIKON: Way[] = [
+  ['Nansenstrasse', 184, [[47.4107, 8.5446], [47.4112, 8.5469]]],
+  ['Dörflistrasse', 345, [[47.4112, 8.5469], [47.409, 8.5501]]],
+  ['', 65, [[47.409, 8.5501], [47.4088, 8.5502], [47.4086, 8.5498]]],
+  ['Tramstrasse', 281, [[47.4086, 8.5498], [47.4093, 8.5467], [47.4092, 8.5464]]],
+  ['Schaffhauserstrasse', 1322, [[47.4092, 8.5464], [47.4079, 8.5468], [47.4062, 8.5483], [47.4048, 8.5483], [47.4039, 8.548], [47.4012, 8.545], [47.3999, 8.5429], [47.3991, 8.5423]]],
+  ['Bucheggstrasse', 1176, [[47.3991, 8.5423], [47.398, 8.5338], [47.3962, 8.5274]]],
+  ['Rosengartenstrasse', 445, [[47.3962, 8.5274], [47.3955, 8.5262], [47.3929, 8.5244]]],
+];
+const VIA_SEEBAHN: Way[] = [
+  ['Hardbrücke', 1274, [[47.3929, 8.5244], [47.3908, 8.5227], [47.3833, 8.5153]]],
+  ['Hardplatz', 159, [[47.3833, 8.5153], [47.3828, 8.5143], [47.3829, 8.5139], [47.3831, 8.5139]]],
+  ['Hohlstrasse', 648, [[47.3831, 8.5139], [47.3829, 8.5152], [47.382, 8.5161], [47.38, 8.5207]]],
+  ['Seebahnstrasse', 1180, [[47.38, 8.5207], [47.3776, 8.5187], [47.3769, 8.5184], [47.3759, 8.5184], [47.3739, 8.5194], [47.3711, 8.5236]]],
+  ['Schimmelstrasse', 254, [[47.3711, 8.5236], [47.3708, 8.5243], [47.3695, 8.5259]]],
+  ['Manessestrasse', 613, [[47.3695, 8.5259], [47.3689, 8.5248], [47.3679, 8.5237], [47.365, 8.5213]]],
+];
+const VIA_AEMTLER: Way[] = [
+  ['Hardbrücke', 1375, [[47.3929, 8.5244], [47.391, 8.5229], [47.3825, 8.5146]]],
+  ['Hardstrasse', 562, [[47.3825, 8.5146], [47.3786, 8.5107], [47.3784, 8.5103]]],
+  ['Albisriederstrasse', 208, [[47.3784, 8.5103], [47.3783, 8.5099], [47.3778, 8.5078]]],
+  ['Aemtlerstrasse', 1050, [[47.3778, 8.5078], [47.3739, 8.5135], [47.3707, 8.5168]]],
+  ['Birmensdorferstrasse', 144, [[47.3707, 8.5168], [47.3704, 8.5183], [47.3702, 8.5185]]],
+  ['Kehlhofstrasse', 209, [[47.3702, 8.5185], [47.3685, 8.5197]]],
+  ['Steinstrasse', 359, [[47.3685, 8.5197], [47.3672, 8.5199], [47.3657, 8.5215]]],
+  ['Manessestrasse', 90, [[47.3657, 8.5215], [47.3654, 8.5216], [47.365, 8.5213]]],
+];
+const TO_BINZ: Way[] = [['Uetlibergstrasse', 410, [[47.365, 8.5213], [47.3624, 8.5187], [47.3627, 8.5179]]]];
+
+/** The morning rush: a jam from the Rosengartenstrasse over the Hardbrücke, slow on the Bucheggstrasse. */
+const RUSH: Record<string, number> = { Bucheggstrasse: 0.6, Rosengartenstrasse: 0.3, 'Hardbrücke': 0.35 };
+
+function route(minutes: number, delayMinutes: number, ways: Way[], traffic: Record<string, number> = {}): CommuteRoute {
+  return { minutes, delayMinutes, stretches: ways.map(([name, length, points]) => ({ name, length, points, ratio: traffic[name] ?? 1 })) };
+}
+
+/** «Arbeitsweg» at rush hour; `image` is the base map, if one was fetched. */
+export function commuteDetail(image: string | null = null): CommuteDetail {
+  const routes = [route(25, 7, [...VIA_OERLIKON, ...VIA_SEEBAHN, ...TO_BINZ], RUSH), route(19, 0, [...VIA_OERLIKON, ...VIA_AEMTLER, ...TO_BINZ])];
+  return { routes, view: fitView(routes.flatMap((r) => r.stretches.flatMap((s) => s.points)), MAP_PX.width, MAP_PX.height), image };
 }

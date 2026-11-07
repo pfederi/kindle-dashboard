@@ -1,4 +1,8 @@
-import { LAYOUT } from '../render/screen.js';
+import { LAYOUT, SCALE } from '../render/screen.js';
+import { MAP_PX } from '../sources/commute-route.js';
+
+/** The Arbeitsweg map in layout px: two image px per device px. */
+const MAP_CSS = { width: Math.round(MAP_PX.width / 2 / SCALE), height: Math.round(MAP_PX.height / 2 / SCALE) };
 
 export const CSS = `
 *{box-sizing:border-box;margin:0;padding:0}
@@ -214,4 +218,25 @@ html,body{width:${LAYOUT.width}px;height:${LAYOUT.height}px;overflow:hidden;back
 .segs .seg{font-size:36px;padding:18px 30px;font-weight:700}
 .segs .seg.on{background:#000;color:#fff}
 .view-hinzufuegen .tiles.two{grid-template-columns:1fr 1fr}
+/* Arbeitsweg: the route on a grey base map; stroke widths in image px of the map (1.12 per layout px). */
+.aw-map{position:relative;width:${MAP_CSS.width}px;height:${MAP_CSS.height}px;border:3px solid #000;overflow:hidden;flex:none}
+.aw-map img,.aw-map svg{position:absolute;left:0;top:0;width:100%;height:100%}
+.aw-map img{filter:grayscale(1) contrast(1.1)}
+.aw-none{display:flex;align-items:center;justify-content:center;font-size:38px;color:#555}
+.aw-map polyline,.aw-sample line{fill:none;stroke:#000;stroke-linejoin:round}
+.aw-map .aw-casing{stroke:#fff;stroke-width:22;stroke-linecap:round}
+.aw-route{stroke-width:9;stroke-linecap:round}
+.aw-jam{stroke-width:25;stroke-linecap:butt}
+/* Thick dashes on the thin route line: slow-moving. */
+.aw-slow{stroke-width:18;stroke-dasharray:20 13;stroke-linecap:butt}
+.aw-alt{stroke-width:6;stroke-dasharray:1 13;stroke-linecap:round}
+.aw-from{fill:#000;stroke:#fff;stroke-width:7}
+.aw-to{fill:#fff;stroke:#000;stroke-width:9}
+.aw-time{font-size:40px;margin-top:22px}
+.aw-time b{font-size:64px}
+.aw-row{font-size:36px;margin-top:8px}
+.aw-row .late{background:#000;color:#fff;border-radius:6px;padding:0 10px}
+.aw-legend{display:flex;gap:36px;align-items:center;font-size:28px;margin-top:14px}
+.aw-legend span{display:flex;align-items:center;gap:10px}
+.aw-sample{width:60px;height:26px}
 `;

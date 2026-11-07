@@ -13,6 +13,7 @@ import { type Departure, shortStop, type StationBoard, TRANSIT_TTL_MS, upcoming 
 import { type Pickup, pickupEntries } from './sources/waste.js';
 import type { Weather } from './sources/weather.js';
 import type { Commute } from './sources/commute.js';
+import type { CommuteDetail } from './sources/commute-route.js';
 import {
   type Action,
   applyKey,
@@ -28,6 +29,7 @@ import {
   takeFullRefresh,
   type ViewName,
 } from './state.js';
+import { arbeitswegHtml } from './views/arbeitsweg.js';
 import { einkaufHtml, pageCount } from './views/einkauf.js';
 import { heuteHtml } from './views/heute.js';
 import { hinzufuegenHtml } from './views/hinzufuegen.js';
@@ -50,7 +52,13 @@ export interface Sources {
   /** Household tasks (a second Bring! list); optional so a missing list simply hides them. */
   tasks?: ShoppingSource;
   /** Scooter travel time with traffic; optional so a missing configuration hides the line. */
-  commute?: { label: string; walkMinutes?: number; get(force?: boolean): Promise<Commute | null> };
+  commute?: {
+    label: string;
+    walkMinutes?: number;
+    get(force?: boolean): Promise<Commute | null>;
+    /** Route, alternative and base map for «Arbeitsweg», opened by a tap on the line. */
+    route(force?: boolean): Promise<CommuteDetail | null>;
+  };
 }
 
 export interface Screen {
@@ -494,6 +502,15 @@ export class Dashboard {
       case 'wetter': {
         const [w, lakeTemp] = await Promise.all([weather.get(force), lake ? lake.get(force) : null]);
         return wetterHtml({ now, weather: w, lakeTemp });
+      }
+      case 'arbeitsweg': {
+        if (!commute && preview) return arbeitswegHtml({ now, label: 'Zur Arbeit', walk: 0, detail: null });
+        if (!commute) {
+          // Not configured (any more): the tab we came from.
+          this.state = navigate(this.state, this.state.returnView);
+          return this.html(this.state.view, force, ctx);
+        }
+        return arbeitswegHtml({ now, label: commute.label, walk: commute.walkMinutes ?? 0, detail: await commute.route(force) });
       }
       case 'station': {
         const index = ctx?.station ?? this.state.station;

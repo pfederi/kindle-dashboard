@@ -14,7 +14,7 @@ export interface DashboardLike {
   previewPng(view: ViewName, opts?: PreviewOptions): Promise<Buffer>;
 }
 
-const VIEWS: ViewName[] = ['heute', 'woche', 'einkauf', 'hinzufuegen', 'wetter', 'station'];
+const VIEWS: ViewName[] = ['heute', 'woche', 'einkauf', 'hinzufuegen', 'wetter', 'station', 'arbeitsweg'];
 
 /** Links to every view as HTML (layout size) and as the PNG the Kindle gets. */
 function previewIndex(stations: string[]): string {
@@ -29,6 +29,7 @@ function previewIndex(stations: string[]): string {
     ['Einkauf', 'einkauf', ''],
     ['Hinzufügen', 'hinzufuegen', ''],
     ['Wetter', 'wetter', ''],
+    ['Arbeitsweg: Route mit Stau', 'arbeitsweg', ''],
     ...stations.map((name, i): [string, string, string] => [`Haltestelle ${name}`, 'station', `station=${i}`]),
   ];
   const status = '<li><a href="/preview/status">Status: Kindle, Akku, Datenquellen</a></li><li><a href="/preview/nacht">Nachtbildschirm: Mondphasen und Feiertage</a></li>';

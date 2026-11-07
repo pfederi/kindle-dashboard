@@ -169,10 +169,10 @@ const SCOOTER_ICON = 52;
 /** Below this, a delay is noise and not shown. */
 export const COMMUTE_DELAY_MIN = 3;
 
-/** «Zur Arbeit 18 Min. · an 08:02 · +4 Min. Stau»: by scooter, leaving now, against the usual time of day. */
+/** «Zur Arbeit 18 Min. · an 08:02 · +4 Min. Stau»: by scooter, leaving now, against the usual time of day. A tap opens the map. */
 function CommuteLine({ label, travel, now }: { label: string; travel: Commute | null; now: Date }) {
   return (
-    <div class="commute">
+    <div class="commute" data-action="commute">
       <Icon name="scooter" size={SCOOTER_ICON} />
       <span>{label}</span>
       {travel === null ? (

@@ -2,10 +2,10 @@ import type { QuietHours } from './config.js';
 import type { GuestOverride } from './guest.js';
 import type { Zone } from './zones.js';
 
-export type ViewName = 'heute' | 'woche' | 'einkauf' | 'hinzufuegen' | 'station' | 'wetter';
+export type ViewName = 'heute' | 'woche' | 'einkauf' | 'hinzufuegen' | 'station' | 'wetter' | 'arbeitsweg';
 /** Views with a tab; the others are overlays with a close button. */
-export type MainView = Exclude<ViewName, 'hinzufuegen' | 'station' | 'wetter'>;
-const OVERLAYS: ViewName[] = ['hinzufuegen', 'station', 'wetter'];
+export type MainView = Exclude<ViewName, 'hinzufuegen' | 'station' | 'wetter' | 'arbeitsweg'>;
+const OVERLAYS: ViewName[] = ['hinzufuegen', 'station', 'wetter', 'arbeitsweg'];
 
 /** Which list «Hinzufügen» writes to. */
 export type AddMode = 'einkauf' | 'aufgabe';
@@ -56,6 +56,7 @@ export function parseAction(s: string): Action | null {
   if (s === 'page:prev') return { type: 'page', delta: -1 };
   if (s === 'nav:aufgabe') return { type: 'nav', view: 'hinzufuegen', mode: 'aufgabe' };
   if (s === 'weather') return { type: 'nav', view: 'wetter' };
+  if (s === 'commute') return { type: 'nav', view: 'arbeitsweg' };
   const i = s.indexOf(':');
   if (i < 0) return null;
   const kind = s.slice(0, i);
