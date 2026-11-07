@@ -363,7 +363,12 @@ function Heute({ m }: { m: HeuteModel }) {
         </div>
         <div class="transit">
           <div class="rule" />
-          {m.commute && <CommuteLine label={m.commute.label} travel={m.commute.travel} now={m.now} />}
+          {m.commute && (
+            <>
+              <CommuteLine label={m.commute.label} travel={m.commute.travel} now={m.now} />
+              <div class="rule" />
+            </>
+          )}
           <div class="ov">
             {m.boards.map((b, i) => (
               <Board board={b} index={i} now={m.now} />

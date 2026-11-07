@@ -62,7 +62,9 @@ html,body{width:${LAYOUT.width}px;height:${LAYOUT.height}px;overflow:hidden;back
 .more{font-size:32px;color:#555;line-height:50px}
 .ev .more-inline{flex:none;font-size:32px;color:#555}
 .transit{margin-top:auto;flex:none}
-.commute{display:flex;align-items:center;gap:16px;font-size:38px;line-height:50px;margin:-4px 0 14px;white-space:nowrap;overflow:hidden}
+.commute{display:flex;align-items:center;gap:16px;font-size:38px;line-height:46px;margin-top:-6px;white-space:nowrap;overflow:hidden}
+/* Between the commute line and the departures; tight, so the block keeps its height from before the divider. */
+.commute + .rule{margin:8px 0 9px}
 .commute .none{color:#555}
 .commute .late{background:#000;color:#fff;border-radius:6px;padding:0 10px}
 .ov{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
