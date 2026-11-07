@@ -3,7 +3,7 @@ import { addDays, startOfWeek } from '../src/format.js';
 import { einkaufMarkup } from '../src/views/einkauf.js';
 import { hinzufuegenMarkup } from '../src/views/hinzufuegen.js';
 import { stationMarkup } from '../src/views/station.js';
-import { wocheMarkup } from '../src/views/woche.js';
+import { eventCaps, wocheMarkup } from '../src/views/woche.js';
 import { entry, NOW } from './fixtures/models.js';
 
 describe('Woche view', () => {
@@ -26,9 +26,23 @@ describe('Woche view', () => {
     expect(html).not.toContain('class="dw"');
   });
 
-  it('shows dashes for empty days and caps busy days', () => {
+  it('shows dashes for empty days and all events while the week fits', () => {
     expect(html.match(/class="dash">—</g)).toHaveLength(5);
-    expect(html).toContain('+ 3 weitere');
+    for (const n of [1, 2, 3, 4, 5]) expect(html).toContain(`>T${n}<`);
+    expect(html).not.toContain('weitere');
+  });
+
+  it('summarises busy days only towards the bottom of the week', () => {
+    const weather = { date: '2026-11-03', code: 61, min: 2, max: 9, rain: 60 };
+    const busy = (n: number) => Array.from({ length: n }, (_, j) => entry('10:00', 'FAM', `T${j}`));
+    const week = (counts: number[]) => counts.map((n, i) => ({ date: addDays(monday, i), weather, entries: busy(n) }));
+    // a busy start keeps all its events, the end of the week gets squeezed
+    expect(eventCaps(week([6, 6, 6, 6, 6, 6, 6]))).toEqual([6, 6, 2, 2, 2, 2, 1]);
+    // an empty week leaves room for a very busy day
+    expect(eventCaps(week([0, 0, 0, 9, 0, 0, 0]))).toEqual([1, 1, 1, 9, 1, 1, 1]);
+    // too much even for one day: the rest of the week still gets a line each
+    expect(eventCaps(week([30, 2, 2, 2, 2, 2, 2]))).toEqual([10, 2, 2, 2, 1, 1, 1]);
+    expect(wocheMarkup({ now: NOW, days: week([6, 6, 6, 6, 6, 6, 6]) })).toContain('+ 5 weitere');
   });
 
   it('has a close button back to Heute, in Woche and Einkauf', () => {

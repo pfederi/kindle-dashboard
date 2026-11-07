@@ -274,12 +274,14 @@ describe('PlaywrightRenderer', () => {
     expect(r.tilesBottom).toBeLessThan(r.kbTop);
   });
 
-  it('Woche meets the minimum font sizes and fits a full week above the tabs', async () => {
+  it('Woche meets the minimum font sizes and fits a busy week above the tabs', async () => {
     const monday = startOfWeek(NOW);
     const long = 'Sehr langer Termin mit ausführlicher Beschreibung';
+    const weather = { date: '2026-11-03', code: 61, min: 2, max: 9, rain: 60 };
     const days = Array.from({ length: 7 }, (_, i) => ({
       date: addDays(monday, i),
-      entries: Array.from({ length: 5 }, (_, j) => entry(j === 0 ? 'ganzt.' : `1${j}:00`, 'FAM', `${long} ${j}`)),
+      weather,
+      entries: Array.from({ length: 6 }, (_, j) => entry(j === 0 ? 'ganzt.' : `1${j}:00`, 'FAM', `${long} ${j}`)),
     }));
     const page = await browser.newPage({ viewport: { ...LAYOUT } });
     await page.setContent(wocheHtml({ now: NOW, days }));
