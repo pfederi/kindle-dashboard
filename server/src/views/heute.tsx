@@ -1,6 +1,7 @@
 import { render } from 'preact-render-to-string';
 import { addDays, formatLongDate, formatTime, isoDate, startOfDay } from '../format.js';
 import type { ShoppingData, ShoppingItem } from '../sources/bring/source.js';
+import type { DayEntry } from '../sources/calendar.js';
 import { describeWmo } from '../sources/wmo.js';
 import { LATE_MIN, leaveAt, reachable } from '../sources/transit.js';
 import { firstRainHour, type HourlyRain, nextHours, rainStartHour, type Weather } from '../sources/weather.js';
@@ -233,6 +234,17 @@ const compactBirthday = (m: HeuteModel) => (m.evening ?? false) || rowsBeforeBir
 /** Event rows left in the agenda. */
 const agendaRows = (m: HeuteModel) => rowsBeforeBirthday(m) - (m.birthdays?.length ? (compactBirthday(m) ? 1 : BIRTHDAY_ROWS) : 0);
 
+/** Past events only while everything fits in `rows`; otherwise they give way to the next ones, oldest first. */
+function dropPast(entries: DayEntry[], rows: number): DayEntry[] {
+  const out = [...entries];
+  while (out.length > rows) {
+    const i = out.findIndex((e) => e.past);
+    if (i < 0) break;
+    out.splice(i, 1);
+  }
+  return out;
+}
+
 /** A section title of the agenda; the first one carries the guest lock and «+ Aufgabe». */
 function AgendaTitle({ m, text, first, cls = 'section-title' }: { m: HeuteModel; text: string; first: boolean; cls?: string }) {
   return (
@@ -345,7 +357,7 @@ function Heute({ m }: { m: HeuteModel }) {
               <AgendaTitle m={m} text="Termine heute" first />
               {m.events === null && <div class="empty">Termine: keine Daten</div>}
               {m.events?.length === 0 && <div class="empty">Keine Termine heute</div>}
-              {m.events && m.events.length > 0 && <EventList entries={m.events} max={agendaRows(m)} />}
+              {m.events && m.events.length > 0 && <EventList entries={dropPast(m.events, agendaRows(m))} max={agendaRows(m)} />}
             </>
           )}
         </div>

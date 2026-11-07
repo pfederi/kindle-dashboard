@@ -210,6 +210,26 @@ describe('Heute view', () => {
     expect(heuteMarkup(heuteModel({ events: many.slice(0, 4) })).match(/class="ev"/g)).toHaveLength(4);
   });
 
+  it('shows past events only while everything fits, else the next ones take their rows', () => {
+    const past = [entry('07:00', 'PF', 'Früh', true), entry('08:00', 'PF', 'Später', true)];
+    const next = (n: number) => Array.from({ length: n }, (_, i) => entry(`1${i}:00`, 'PF', `Termin ${i}`));
+    const waste = { calendar: '', title: 'Karton', label: 'ganzt.', allDay: true, past: false, sortTime: 0, waste: 'cardboard' as const };
+    // 4 rows: everything fits, past ones stay
+    expect(heuteMarkup(heuteModel({ events: [...past, ...next(2)] })).match(/class="ev( past)?"/g)).toHaveLength(4);
+    // one too many: the oldest past event gives way, all upcoming ones are listed
+    const one = heuteMarkup(heuteModel({ events: [waste, ...past, ...next(2)] }));
+    expect(one).not.toContain('Früh');
+    expect(one).toContain('Später');
+    expect(one).toContain('Karton');
+    expect(one).toContain('Termin 1');
+    expect(one).not.toContain('weitere');
+    // more upcoming than rows: no past events, «+ N weitere» counts upcoming ones only
+    const full = heuteMarkup(heuteModel({ events: [...past, ...next(5)] }));
+    expect(full).not.toContain('class="ev past"');
+    expect(full).toContain('Termin 2');
+    expect(full).toContain('+ 2 weitere');
+  });
+
   it('uses the room of the rain strip for one more row on a dry day', () => {
     const many = Array.from({ length: 10 }, (_, i) => entry(`1${i}:00`, 'PF', `Termin ${i}`));
     const out = heuteMarkup(heuteModel({ events: many, weather: dryWeather() }));
