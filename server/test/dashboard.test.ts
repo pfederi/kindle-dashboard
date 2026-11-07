@@ -309,7 +309,8 @@ describe('Dashboard', () => {
       { label: 'Schule', icon: 'school', badge: 'LE', get: vi.fn(async () => ({ minutes: 11, delayMinutes: 0 })), route: school },
     ];
     await dash.screen();
-    expect(renderer.lastHtml).toContain('<span class="dest" data-action="commute:1"><span class="cal">LE</span>');
+    expect(renderer.lastHtml).toContain('<span class="cal">LE</span><span class="sep"></span>');
+    expect(renderer.lastHtml).toContain('<span class="dest" data-action="commute:1">');
     await tapAction('commute:1');
     expect(dash.view).toBe('arbeitsweg');
     expect(school).toHaveBeenCalledOnce();
@@ -325,7 +326,7 @@ describe('Dashboard', () => {
     expect(await dash.previewHtml('arbeitsweg', { commute: 1 })).toContain('<b>11 Min.</b>');
   });
 
-  it('shows the school only on its days: on others neither in the line nor as a tab, and without asking HERE', async () => {
+  it('shows the school in Heute only on its days, without asking HERE on the others; the map keeps both tabs', async () => {
     const { dash, renderer, src, clock, tapAction } = setup(); // Tuesday
     const get = vi.fn(async () => ({ minutes: 11, delayMinutes: 0 }));
     const route = vi.fn(async () => null);
@@ -342,10 +343,14 @@ describe('Dashboard', () => {
     expect(renderer.lastHtml).toContain('<span>Zur Arbeit</span><b>18 Min.</b><span>an 07:58</span>');
     expect(get).not.toHaveBeenCalled();
     await tapAction('commute:0');
-    expect(renderer.lastHtml).toContain('<div class="title serif">Zur Arbeit</div>');
+    expect(renderer.lastHtml).toContain('<div class="seg on" data-action="commute:0">');
     expect(route).not.toHaveBeenCalled();
-    // The preview shows the school whatever the day.
-    expect(await dash.previewHtml('arbeitsweg', { commute: 1 })).toContain('<div class="seg on" data-action="commute:1">');
+    await tapAction('commute:1');
+    expect(renderer.lastHtml).toContain('<div class="seg on" data-action="commute:1">');
+    expect(route).toHaveBeenCalledOnce();
+    // The preview «Heute mit Schule» shows it whatever the day.
+    expect(await dash.previewHtml('heute', { school: true })).toContain('data-action="commute:1"');
+    expect(await dash.previewHtml('heute')).not.toContain('data-action="commute:1"');
   });
 
   it('previews «Arbeitsweg» without a commute configured, and leaves the device where it is', async () => {

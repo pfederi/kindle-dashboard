@@ -141,6 +141,8 @@ export interface PreviewOptions {
   jam?: boolean;
   /** Which destination «Arbeitsweg» shows. */
   commute?: number;
+  /** Heute with the school, whatever the day. */
+  school?: boolean;
 }
 
 export const PREVIEW_BATTERY = 15;
@@ -156,6 +158,7 @@ interface RenderContext {
   holiday?: HolidayId;
   jam?: boolean;
   commute?: number;
+  school?: boolean;
 }
 /** From this hour Heute shows tonight's remaining events, tomorrow's and tomorrow's weather. */
 export const EVENING_HOUR = 19;
@@ -233,7 +236,7 @@ export class Dashboard {
       now = new Date(now);
       now.setHours(Math.floor(quiet.start / 60), (quiet.start % 60) + 30, 0, 0);
     }
-    return { now, station: opts.station ?? this.state.station, preview: true, guest: opts.guest, lowBattery: opts.lowBattery, moon: opts.moon, holiday: opts.holiday, jam: opts.jam, commute: opts.commute };
+    return { now, station: opts.station ?? this.state.station, preview: true, guest: opts.guest, lowBattery: opts.lowBattery, moon: opts.moon, holiday: opts.holiday, jam: opts.jam, commute: opts.commute, school: opts.school };
   }
 
   private async apply(action: Action): Promise<boolean> {
@@ -325,7 +328,7 @@ export class Dashboard {
     return { guest, show: guest ? hideEntries : (e) => e, visitors: visitorNames(running, now) };
   }
 
-  /** The destinations of `now`'s day: school only on school days. Previews of «Arbeitsweg» show all. */
+  /** The destinations in Heute: school only on school days (`all`: whatever the day). */
   private commutesOn(now: Date, all = false): CommuteSource[] | undefined {
     const list = all ? this.opts.sources.commutes : this.opts.sources.commutes?.filter((c) => !c.days || c.days.includes(now.getDay()));
     return list && list.length > 0 ? list : undefined;
@@ -449,7 +452,7 @@ export class Dashboard {
         if (this.night(now, ctx)) return this.nachtHtmlFor(now, force, ctx);
         const day = startOfDay(now);
         const evening = now.getHours() >= EVENING_HOUR;
-        const commutes = this.commutesOn(now);
+        const commutes = this.commutesOn(now, ctx?.school);
         const tomorrow = addDays(day, 1);
         const [w, lakeTemp, events, boards, shopping, pickups, { guest, show, visitors }, taskList, travels] = await Promise.all([
           weather.get(force),
@@ -534,7 +537,8 @@ export class Dashboard {
         return wetterHtml({ now, weather: w, lakeTemp });
       }
       case 'arbeitsweg': {
-        const list = this.commutesOn(now, preview) ?? [];
+        // Both tabs every day: a look at the school route on a free day does no harm.
+        const list = this.opts.sources.commutes ?? [];
         const index = Math.min(ctx?.commute ?? this.state.commute, list.length - 1);
         const commute = list[index];
         if (!commute && preview) return arbeitswegHtml({ now, tabs: [{ label: 'Zur Arbeit', icon: 'work', badge: '' }], active: 0, walk: 0, detail: null });

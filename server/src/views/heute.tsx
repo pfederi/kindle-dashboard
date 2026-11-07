@@ -190,11 +190,13 @@ function Travel({ travel, now, short }: { travel: Commute | null; now: Date; sho
  */
 function CommuteLine({ commutes, now }: { commutes: NonNullable<HeuteModel['commutes']>; now: Date }) {
   const [only] = commutes;
+  // Whose rides they are, always right after the scooter.
+  const badges = [...new Set(commutes.map((c) => c.badge).filter(Boolean))].map((b) => <span class="cal">{b}</span>);
   if (commutes.length === 1 && only) {
     return (
       <div class="commute" data-action="commute:0">
         <Icon name="scooter" size={SCOOTER_ICON} />
-        {only.badge && <span class="cal">{only.badge}</span>}
+        {badges}
         <span>{only.label}</span>
         <Travel travel={only.travel} now={now} />
       </div>
@@ -203,10 +205,10 @@ function CommuteLine({ commutes, now }: { commutes: NonNullable<HeuteModel['comm
   return (
     <div class="commute" data-action="commute:0">
       <Icon name="scooter" size={SCOOTER_ICON} />
+      {badges}
       <span class="sep" />
       {commutes.map((c, i) => (
         <span class="dest" data-action={`commute:${i}`}>
-          {c.badge && <span class="cal">{c.badge}</span>}
           <Icon name={COMMUTE_ICONS[c.icon]} size={40} />
           <Travel travel={c.travel} now={now} short />
         </span>

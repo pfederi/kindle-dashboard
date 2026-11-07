@@ -347,7 +347,7 @@ describe('Heute view', () => {
     expect(html).not.toContain('class="commute"');
   });
 
-  it('shows work and school after a divider, each with its icon, a tap zone and the short delay, without arrival', () => {
+  it('shows work and school after a divider, each with its icon, a tap zone and the short delay, without arrival; the badge right after the scooter', () => {
     const html = heuteMarkup(
       heuteModel({
         commutes: [
@@ -357,9 +357,9 @@ describe('Heute view', () => {
       }),
     );
     expect(html).toContain('<div class="commute" data-action="commute:0">');
-    expect(html).toContain('<span class="sep"></span><span class="dest" data-action="commute:0">');
+    expect(html).toMatch(/lucide-motorbike.*?<\/span><span class="cal">LE<\/span><span class="sep"><\/span><span class="dest" data-action="commute:0">/);
     expect(html).toMatch(/<span class="dest" data-action="commute:0"><span class="icon"><svg class="lucide lucide-briefcase".*?<b>18 Min\.<\/b><b class="late">\+4 Stau<\/b><\/span>/);
-    expect(html).toMatch(/<span class="dest" data-action="commute:1"><span class="cal">LE<\/span><span class="icon"><svg class="lucide lucide-school".*?<span class="none">keine Daten<\/span><\/span>/);
+    expect(html).toMatch(/<span class="dest" data-action="commute:1"><span class="icon"><svg class="lucide lucide-school".*?<span class="none">keine Daten<\/span><\/span>/);
     expect(html).not.toContain('Zur Arbeit');
     expect(html).not.toMatch(/class="commute".*an 07:58/);
   });
