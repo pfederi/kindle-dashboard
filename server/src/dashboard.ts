@@ -60,6 +60,8 @@ export interface CommuteSource {
   icon: CommuteDestination['icon'];
   /** Whose ride, like a calendar abbreviation; '' or absent = none. */
   badge?: string;
+  /** Days of the week it is shown and fetched (Date.getDay); absent = every day. */
+  days?: number[];
   walkMinutes?: number;
   get(force?: boolean): Promise<Commute | null>;
   /** Route, alternative and base map for «Arbeitsweg», opened by a tap on the line. */
@@ -323,6 +325,12 @@ export class Dashboard {
     return { guest, show: guest ? hideEntries : (e) => e, visitors: visitorNames(running, now) };
   }
 
+  /** The destinations of `now`'s day: school only on school days. Previews of «Arbeitsweg» show all. */
+  private commutesOn(now: Date, all = false): CommuteSource[] | undefined {
+    const list = all ? this.opts.sources.commutes : this.opts.sources.commutes?.filter((c) => !c.days || c.days.includes(now.getDay()));
+    return list && list.length > 0 ? list : undefined;
+  }
+
   /** The list «Hinzufügen» writes to. */
   private addSource(): ShoppingSource {
     const { tasks, bring } = this.opts.sources;
@@ -435,12 +443,13 @@ export class Dashboard {
   private async html(view: ViewName, force: boolean, ctx?: RenderContext): Promise<string> {
     const now = ctx?.now ?? this.opts.clock();
     const preview = ctx?.preview ?? false;
-    const { weather, lake, waste, calendar, transit, bring, tasks, commutes } = this.opts.sources;
+    const { weather, lake, waste, calendar, transit, bring, tasks } = this.opts.sources;
     switch (view) {
       case 'heute': {
         if (this.night(now, ctx)) return this.nachtHtmlFor(now, force, ctx);
         const day = startOfDay(now);
         const evening = now.getHours() >= EVENING_HOUR;
+        const commutes = this.commutesOn(now);
         const tomorrow = addDays(day, 1);
         const [w, lakeTemp, events, boards, shopping, pickups, { guest, show, visitors }, taskList, travels] = await Promise.all([
           weather.get(force),
@@ -525,7 +534,7 @@ export class Dashboard {
         return wetterHtml({ now, weather: w, lakeTemp });
       }
       case 'arbeitsweg': {
-        const list = commutes ?? [];
+        const list = this.commutesOn(now, preview) ?? [];
         const index = Math.min(ctx?.commute ?? this.state.commute, list.length - 1);
         const commute = list[index];
         if (!commute && preview) return arbeitswegHtml({ now, tabs: [{ label: 'Zur Arbeit', icon: 'work', badge: '' }], active: 0, walk: 0, detail: null });

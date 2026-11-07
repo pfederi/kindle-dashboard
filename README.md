@@ -114,6 +114,7 @@ Der Server läuft als Docker-Container, z. B. in [Coolify](https://coolify.io).
 | `COMMUTE_HIGHWAY` | | `1` = Autobahn erlaubt (125 cm³, Standard), `0` = ohne |
 | `COMMUTE_LABEL` | | Text vor der Fahrzeit, Standard `Zur Arbeit` |
 | `COMMUTE_SCHOOL_TO` | | Ziel der Fahrt zur Schule als `Breite,Länge`, gleicher Start; nur in Coolify |
+| `COMMUTE_SCHOOL_DAYS` | | Tage mit Schule, z. B. `Mo,Di` oder `Mo-Fr` (Standard); an den anderen Tagen fehlt die Schule in Zeile und Karte und wird nicht abgefragt |
 | `COMMUTE_SCHOOL_LABEL` | | Name der Schulfahrt (Reiter in «Arbeitsweg»), Standard `Schule` |
 | `COMMUTE_BADGE`, `COMMUTE_SCHOOL_BADGE` | | Kürzel (1–4 Zeichen) vor der Fahrt, wie bei den Kalendern, z. B. wessen Weg es ist; Standard keins |
 | `COMMUTE_WALK_MINUTES` | | Fussweg bis zum Roller (z. B. zur Garage) in Minuten, wird zur Fahrzeit addiert; Fahrzeit und Ankunft gelten dann ab der Haustür. Standard `0` |

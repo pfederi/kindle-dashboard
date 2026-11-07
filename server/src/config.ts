@@ -47,6 +47,8 @@ export interface CommuteDestination {
   icon: 'work' | 'school';
   /** Whose ride, as the calendar abbreviations show it, e.g. «LE»; '' = none. */
   badge: string;
+  /** Days of the week it is shown (0 Sunday … 6 Saturday, as Date.getDay). */
+  days: number[];
 }
 
 /** Scooter travel time with live traffic (HERE) from home to work and, optionally, to school. */
@@ -211,6 +213,22 @@ function coords(key: string, raw: string): { lat: number; lon: number } {
   return { lat, lon };
 }
 
+/** Monday first, as in «Mo-Fr». */
+const WEEKDAYS = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'];
+
+/** «Mo,Di» or «Mo-Fr» (also mixed, «Mo-Mi,Fr») to days as Date.getDay counts them, sorted. */
+export function weekdays(key: string, raw: string): number[] {
+  const days = new Set<number>();
+  for (const part of raw.split(',')) {
+    const [a, b, ...rest] = part.trim().toLowerCase().split('-').map((s) => s.trim());
+    const from = WEEKDAYS.indexOf(a ?? '');
+    const to = b === undefined ? from : WEEKDAYS.indexOf(b);
+    if (from < 0 || to < from || rest.length > 0) throw new Error(`${key} must list days like Mo,Di or Mo-Fr`);
+    for (let i = from; i <= to; i++) days.add((i + 1) % 7);
+  }
+  return [...days].sort((x, y) => x - y);
+}
+
 function commute(env: Env): CommuteConfig | null {
   const keys = ['HERE_API_KEY', 'COMMUTE_FROM', 'COMMUTE_TO'] as const;
   const set = keys.filter((k) => env[k]?.trim());
@@ -233,9 +251,17 @@ function commute(env: Env): CommuteConfig | null {
     highway: highway === '1',
     walkMinutes: walk === '' ? 0 : Number(walk),
     destinations: [
-      { to: coords('COMMUTE_TO', env.COMMUTE_TO!), label: env.COMMUTE_LABEL?.trim() || 'Zur Arbeit', icon: 'work', badge: badge('COMMUTE_BADGE') },
+      { to: coords('COMMUTE_TO', env.COMMUTE_TO!), label: env.COMMUTE_LABEL?.trim() || 'Zur Arbeit', icon: 'work', badge: badge('COMMUTE_BADGE'), days: [0, 1, 2, 3, 4, 5, 6] },
       ...(school
-        ? [{ to: coords('COMMUTE_SCHOOL_TO', school), label: env.COMMUTE_SCHOOL_LABEL?.trim() || 'Schule', icon: 'school' as const, badge: badge('COMMUTE_SCHOOL_BADGE') }]
+        ? [
+            {
+              to: coords('COMMUTE_SCHOOL_TO', school),
+              label: env.COMMUTE_SCHOOL_LABEL?.trim() || 'Schule',
+              icon: 'school' as const,
+              badge: badge('COMMUTE_SCHOOL_BADGE'),
+              days: weekdays('COMMUTE_SCHOOL_DAYS', env.COMMUTE_SCHOOL_DAYS?.trim() || 'Mo-Fr'),
+            },
+          ]
         : []),
     ],
   };

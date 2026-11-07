@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadConfig } from '../src/config.js';
+import { loadConfig, weekdays } from '../src/config.js';
 
 const base = { DEVICE_TOKEN: 'tok', PREVIEW_PASSWORD: 'pw' };
 
@@ -61,7 +61,7 @@ describe('loadConfig', () => {
       from: { lat: 47.411, lon: 8.544 },
       highway: true,
       walkMinutes: 0,
-      destinations: [{ to: { lat: 47.378, lon: 8.54 }, label: 'Zur Arbeit', icon: 'work', badge: '' }],
+      destinations: [{ to: { lat: 47.378, lon: 8.54 }, label: 'Zur Arbeit', icon: 'work', badge: '', days: [0, 1, 2, 3, 4, 5, 6] }],
     });
     expect(loadConfig({ ...env, COMMUTE_HIGHWAY: '0', COMMUTE_LABEL: 'Zum Geschäft', COMMUTE_WALK_MINUTES: '5' }).commute).toMatchObject({
       highway: false,
@@ -69,7 +69,15 @@ describe('loadConfig', () => {
       destinations: [{ label: 'Zum Geschäft' }],
     });
     // A school from the same start, with whose ride it is as a calendar abbreviation.
-    expect(loadConfig({ ...env, COMMUTE_SCHOOL_TO: '47.39,8.51', COMMUTE_SCHOOL_BADGE: 'AB' }).commute?.destinations[1]).toEqual({ to: { lat: 47.39, lon: 8.51 }, label: 'Schule', icon: 'school', badge: 'AB' });
+    expect(loadConfig({ ...env, COMMUTE_SCHOOL_TO: '47.39,8.51', COMMUTE_SCHOOL_BADGE: 'AB' }).commute?.destinations[1]).toEqual({
+      to: { lat: 47.39, lon: 8.51 },
+      label: 'Schule',
+      icon: 'school',
+      badge: 'AB',
+      days: [1, 2, 3, 4, 5],
+    });
+    expect(loadConfig({ ...env, COMMUTE_SCHOOL_TO: '47.39,8.51', COMMUTE_SCHOOL_DAYS: 'Mo, Di' }).commute?.destinations[1]?.days).toEqual([1, 2]);
+    expect(() => loadConfig({ ...env, COMMUTE_SCHOOL_TO: '47.39,8.51', COMMUTE_SCHOOL_DAYS: 'Montag' })).toThrow(/COMMUTE_SCHOOL_DAYS must list days like Mo,Di or Mo-Fr/);
     expect(loadConfig({ ...env, COMMUTE_SCHOOL_TO: '47.39,8.51', COMMUTE_SCHOOL_LABEL: 'Gymi' }).commute?.destinations[1]?.label).toBe('Gymi');
     expect(() => loadConfig({ ...env, COMMUTE_SCHOOL_TO: 'Schulhaus' })).toThrow(/COMMUTE_SCHOOL_TO must look like/);
     expect(() => loadConfig({ ...env, COMMUTE_BADGE: 'zu lang' })).toThrow(/COMMUTE_BADGE must be 1–4/);
@@ -78,6 +86,14 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...env, COMMUTE_TO: 'Bahnhofstrasse 1' })).toThrow(/COMMUTE_TO must look like/);
     expect(() => loadConfig({ ...env, COMMUTE_FROM: '95,8' })).toThrow(/COMMUTE_FROM/);
     expect(() => loadConfig({ ...env, COMMUTE_HIGHWAY: 'ja' })).toThrow(/COMMUTE_HIGHWAY/);
+  });
+
+  it('reads school days as weekday abbreviations, lists and ranges, as Date.getDay counts them', () => {
+    expect(weekdays('X', 'Mo,Di')).toEqual([1, 2]);
+    expect(weekdays('X', 'Mo-Fr')).toEqual([1, 2, 3, 4, 5]);
+    expect(weekdays('X', 'mo - mi, FR')).toEqual([1, 2, 3, 5]);
+    expect(weekdays('X', 'Sa,So,Sa')).toEqual([0, 6]);
+    for (const bad of ['', 'Fr-Mo', 'Mo-Di-Mi', 'Mon']) expect(() => weekdays('X', bad)).toThrow(/X must list days/);
   });
 
   it('reads the guest WLAN, open networks too, and checks its limits', () => {

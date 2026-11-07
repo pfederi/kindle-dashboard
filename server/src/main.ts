@@ -45,6 +45,7 @@ async function main(): Promise<void> {
       label: d.label,
       icon: d.icon,
       badge: d.badge,
+      days: d.days,
       walkMinutes: commuteConfig.walkMinutes,
       get: async (force) => (await travel.get(force))?.value ?? null,
       route: async (force) => (await route.get(force))?.value ?? null,
