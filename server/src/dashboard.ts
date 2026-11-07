@@ -47,7 +47,7 @@ export interface Sources {
   /** Household tasks (a second Bring! list); optional so a missing list simply hides them. */
   tasks?: ShoppingSource;
   /** Scooter travel time with traffic; optional so a missing configuration hides the line. */
-  commute?: { label: string; get(force?: boolean): Promise<Commute | null> };
+  commute?: { label: string; walkMinutes?: number; get(force?: boolean): Promise<Commute | null> };
 }
 
 export interface Screen {
@@ -407,7 +407,8 @@ export class Dashboard {
           now,
           guest,
           welcome: guest && wifi ? { guests: visitors, wifi: wifiPayload(wifi) } : undefined,
-          commute: commute ? { label: commute.label, travel: travel ?? null } : undefined,
+          // Door to door: the walk to the scooter comes first.
+          commute: commute ? { label: commute.label, travel: travel ? { ...travel, minutes: travel.minutes + (commute.walkMinutes ?? 0) } : null } : undefined,
           battery: this.lowBattery(ctx),
           birthdays: birthdaysOn(this.opts.birthdays ?? [], now),
           // Bring! lists items in the order they were added: «Dringend» first, then the newest, for the box.

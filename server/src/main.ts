@@ -74,7 +74,7 @@ async function main(): Promise<void> {
       bring,
       tasks,
       commute:
-        commuteConfig && commuteCache ? { label: commuteConfig.label, get: async (force) => (await commuteCache.get(force))?.value ?? null } : undefined,
+        commuteConfig && commuteCache ? { label: commuteConfig.label, walkMinutes: commuteConfig.walkMinutes, get: async (force) => (await commuteCache.get(force))?.value ?? null } : undefined,
     },
     renderer,
     clock,

@@ -107,6 +107,7 @@ Der Server läuft als Docker-Container, z. B. in [Coolify](https://coolify.io).
 | `COMMUTE_FROM`, `COMMUTE_TO` | | Start und Ziel der Roller-Fahrt als `Breite,Länge`, z. B. `47.411,8.544` (in Google Maps Rechtsklick auf den Ort); nur in Coolify, nie im Repository |
 | `COMMUTE_HIGHWAY` | | `1` = Autobahn erlaubt (125 cm³, Standard), `0` = ohne |
 | `COMMUTE_LABEL` | | Text vor der Fahrzeit, Standard `Zur Arbeit` |
+| `COMMUTE_WALK_MINUTES` | | Fussweg bis zum Roller (z. B. zur Garage) in Minuten, wird zur Fahrzeit addiert; Fahrzeit und Ankunft gelten dann ab der Haustür. Standard `0` |
 | `QUIET_HOURS` | | Nachtruhe mit Nachtbildschirm, ohne Aktualisierung und mit ausgeschaltetem WLAN (spart Akku), Standard `00:00-05:30`, über Mitternacht möglich (z. B. `22:30-06:00`); leer = aus |
 | `NTFY_TOPIC` | | Push-Benachrichtigung über [ntfy](https://ntfy.sh), wenn der Kindle sich nicht mehr meldet oder der Akku fast leer ist: ein schwer erratbarer Name, z. B. `kindle-` + 12 zufällige Zeichen |
 | `NTFY_SERVER` | | ntfy-Server, Standard `https://ntfy.sh` |

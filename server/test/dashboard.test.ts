@@ -264,6 +264,13 @@ describe('Dashboard', () => {
     expect(renderer.lastHtml).not.toContain('class="batt"');
   });
 
+  it('adds the walk to the scooter to the ride: door to door, also for the arrival time', async () => {
+    const { dash, renderer, src } = setup();
+    (src as { commute?: unknown }).commute = { label: 'Zur Arbeit', walkMinutes: 5, get: vi.fn(async () => ({ minutes: 18, delayMinutes: 4 })) };
+    await dash.screen();
+    expect(renderer.lastHtml).toContain('<b>23 Min.</b><span>an 08:03</span><b class="late">+4 Min. Stau</b>');
+  });
+
   it('previews a low battery', async () => {
     const { dash } = setup();
     expect(await dash.previewHtml('heute')).not.toContain('class="batt"');

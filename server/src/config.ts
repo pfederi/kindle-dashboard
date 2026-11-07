@@ -48,6 +48,8 @@ export interface CommuteConfig {
   highway: boolean;
   /** Shown before the time, e.g. «Zur Arbeit». */
   label: string;
+  /** Minutes on foot to the scooter (e.g. to the garage), added to the ride. */
+  walkMinutes: number;
 }
 
 export interface BringConfig {
@@ -208,12 +210,15 @@ function commute(env: Env): CommuteConfig | null {
   if (set.length < keys.length) throw new Error(`Scooter travel time needs ${keys.filter((k) => !set.includes(k)).join(', ')} as well`);
   const highway = (env.COMMUTE_HIGHWAY ?? '1').trim();
   if (highway !== '0' && highway !== '1') throw new Error('COMMUTE_HIGHWAY must be 1 (motorways allowed) or 0');
+  const walk = (env.COMMUTE_WALK_MINUTES ?? '').trim();
+  if (walk !== '' && !/^\d{1,2}$/.test(walk)) throw new Error('COMMUTE_WALK_MINUTES must be whole minutes from 0 to 99');
   return {
     apiKey: env.HERE_API_KEY!.trim(),
     from: coords('COMMUTE_FROM', env.COMMUTE_FROM!),
     to: coords('COMMUTE_TO', env.COMMUTE_TO!),
     highway: highway === '1',
     label: env.COMMUTE_LABEL?.trim() || 'Zur Arbeit',
+    walkMinutes: walk === '' ? 0 : Number(walk),
   };
 }
 

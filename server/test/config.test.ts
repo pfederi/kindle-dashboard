@@ -56,8 +56,9 @@ describe('loadConfig', () => {
   it('sets up the scooter travel time only with key, start and destination, and checks them', () => {
     expect(loadConfig(base).commute).toBeNull();
     const env = { ...base, HERE_API_KEY: ' k3y ', COMMUTE_FROM: '47.411, 8.544', COMMUTE_TO: '47.378,8.54' };
-    expect(loadConfig(env).commute).toEqual({ apiKey: 'k3y', from: { lat: 47.411, lon: 8.544 }, to: { lat: 47.378, lon: 8.54 }, highway: true, label: 'Zur Arbeit' });
-    expect(loadConfig({ ...env, COMMUTE_HIGHWAY: '0', COMMUTE_LABEL: 'Zum Geschäft' }).commute).toMatchObject({ highway: false, label: 'Zum Geschäft' });
+    expect(loadConfig(env).commute).toEqual({ apiKey: 'k3y', from: { lat: 47.411, lon: 8.544 }, to: { lat: 47.378, lon: 8.54 }, highway: true, label: 'Zur Arbeit', walkMinutes: 0 });
+    expect(loadConfig({ ...env, COMMUTE_HIGHWAY: '0', COMMUTE_LABEL: 'Zum Geschäft', COMMUTE_WALK_MINUTES: '5' }).commute).toMatchObject({ highway: false, label: 'Zum Geschäft', walkMinutes: 5 });
+    expect(() => loadConfig({ ...env, COMMUTE_WALK_MINUTES: '5 Min' })).toThrow(/COMMUTE_WALK_MINUTES/);
     expect(() => loadConfig({ ...base, HERE_API_KEY: 'k3y' })).toThrow(/COMMUTE_FROM, COMMUTE_TO/);
     expect(() => loadConfig({ ...env, COMMUTE_TO: 'Bahnhofstrasse 1' })).toThrow(/COMMUTE_TO must look like/);
     expect(() => loadConfig({ ...env, COMMUTE_FROM: '95,8' })).toThrow(/COMMUTE_FROM/);
