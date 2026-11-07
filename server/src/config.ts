@@ -39,6 +39,17 @@ export interface GuestWifi {
   password: string;
 }
 
+/** Scooter travel time to work with live traffic (HERE). */
+export interface CommuteConfig {
+  apiKey: string;
+  from: { lat: number; lon: number };
+  to: { lat: number; lon: number };
+  /** Motorways allowed (a 125 cm³ scooter may use them). */
+  highway: boolean;
+  /** Shown before the time, e.g. «Zur Arbeit». */
+  label: string;
+}
+
 export interface BringConfig {
   email: string;
   password: string;
@@ -66,6 +77,8 @@ export interface Config {
   viewResetSeconds: number;
   /** Welcome screen with a WLAN QR code during a visit; null when GUEST_WIFI_SSID is not set. */
   guestWifi: GuestWifi | null;
+  /** Scooter travel time above the departures; null unless HERE_API_KEY, COMMUTE_FROM and COMMUTE_TO are set. */
+  commute: CommuteConfig | null;
 }
 
 export const DEFAULT_STATIONS: StationConfig[] = [
@@ -179,6 +192,31 @@ function guestWifi(env: Env): GuestWifi | null {
   return { ssid, password };
 }
 
+function coords(key: string, raw: string): { lat: number; lon: number } {
+  const m = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(raw);
+  const lat = Number(m?.[1]);
+  const lon = Number(m?.[2]);
+  if (!m || Math.abs(lat) > 90 || Math.abs(lon) > 180) throw new Error(`${key} must look like 47.411,8.544 (latitude,longitude)`);
+  return { lat, lon };
+}
+
+function commute(env: Env): CommuteConfig | null {
+  const keys = ['HERE_API_KEY', 'COMMUTE_FROM', 'COMMUTE_TO'] as const;
+  const set = keys.filter((k) => env[k]?.trim());
+  if (set.length === 0) return null;
+  // Names only: the values are a key and home/work locations.
+  if (set.length < keys.length) throw new Error(`Scooter travel time needs ${keys.filter((k) => !set.includes(k)).join(', ')} as well`);
+  const highway = (env.COMMUTE_HIGHWAY ?? '1').trim();
+  if (highway !== '0' && highway !== '1') throw new Error('COMMUTE_HIGHWAY must be 1 (motorways allowed) or 0');
+  return {
+    apiKey: env.HERE_API_KEY!.trim(),
+    from: coords('COMMUTE_FROM', env.COMMUTE_FROM!),
+    to: coords('COMMUTE_TO', env.COMMUTE_TO!),
+    highway: highway === '1',
+    label: env.COMMUTE_LABEL?.trim() || 'Zur Arbeit',
+  };
+}
+
 function ntfy(env: Env): NtfyConfig | null {
   const topic = env.NTFY_TOPIC?.trim();
   if (!topic) return null;
@@ -229,6 +267,7 @@ export function loadConfig(env: Env): Config {
     quietHours: quiet(env.QUIET_HOURS),
     ntfy: ntfy(env),
     guestWifi: guestWifi(env),
+    commute: commute(env),
     viewResetSeconds: int(env, 'VIEW_RESET_SECONDS', 120),
   };
 }

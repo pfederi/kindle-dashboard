@@ -17,6 +17,7 @@ import { BringSource, disabledBring, MAX_TASK_TILES, type ShoppingSource, TASK_S
 import { CalendarSource } from './sources/calendar.js';
 import { TransitSource } from './sources/transit.js';
 import { fetchLakeTemp } from './sources/lake.js';
+import { fetchCommute } from './sources/commute.js';
 import { fetchWaste } from './sources/waste.js';
 import { fetchWeather } from './sources/weather.js';
 
@@ -29,6 +30,10 @@ async function main(): Promise<void> {
   const lakeCache = new TtlCache(3 * 3_600_000, () => fetchLakeTemp(fetchFn, clock()), clock, 'lake');
   const wasteZip = config.wasteZip;
   const wasteCache = wasteZip ? new TtlCache(6 * 3_600_000, () => fetchWaste(fetchFn, wasteZip, startOfWeek(clock())), clock, 'waste') : null;
+
+  // Scooter travel time with traffic; 5 minutes, and only fetched while Heute is shown (not at night).
+  const commuteConfig = config.commute;
+  const commuteCache = commuteConfig ? new TtlCache(5 * 60_000, () => fetchCommute(fetchFn, commuteConfig), clock, 'commute') : null;
 
   let bring = disabledBring;
   let tasks: ShoppingSource | undefined;
@@ -68,6 +73,8 @@ async function main(): Promise<void> {
       transit: new TransitSource(config.stations, fetchFn, clock),
       bring,
       tasks,
+      commute:
+        commuteConfig && commuteCache ? { label: commuteConfig.label, get: async (force) => (await commuteCache.get(force))?.value ?? null } : undefined,
     },
     renderer,
     clock,

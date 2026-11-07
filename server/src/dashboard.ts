@@ -10,6 +10,7 @@ import { type CalendarEvent, type DayEntry, entriesForDay } from './sources/cale
 import { type Departure, shortStop, type StationBoard, TRANSIT_TTL_MS, upcoming } from './sources/transit.js';
 import { type Pickup, pickupEntries } from './sources/waste.js';
 import type { Weather } from './sources/weather.js';
+import type { Commute } from './sources/commute.js';
 import {
   type Action,
   applyKey,
@@ -45,6 +46,8 @@ export interface Sources {
   bring: ShoppingSource;
   /** Household tasks (a second Bring! list); optional so a missing list simply hides them. */
   tasks?: ShoppingSource;
+  /** Scooter travel time with traffic; optional so a missing configuration hides the line. */
+  commute?: { label: string; get(force?: boolean): Promise<Commute | null> };
 }
 
 export interface Screen {
@@ -372,14 +375,14 @@ export class Dashboard {
   private async html(view: ViewName, force: boolean, ctx?: RenderContext): Promise<string> {
     const now = ctx?.now ?? this.opts.clock();
     const preview = ctx?.preview ?? false;
-    const { weather, lake, waste, calendar, transit, bring, tasks } = this.opts.sources;
+    const { weather, lake, waste, calendar, transit, bring, tasks, commute } = this.opts.sources;
     switch (view) {
       case 'heute': {
         if (isQuiet(now, this.opts.quietHours)) return this.nachtHtmlFor(now, force, ctx);
         const day = startOfDay(now);
         const evening = now.getHours() >= EVENING_HOUR;
         const tomorrow = addDays(day, 1);
-        const [w, lakeTemp, events, boards, shopping, pickups, { guest, show, visitors }, taskList] = await Promise.all([
+        const [w, lakeTemp, events, boards, shopping, pickups, { guest, show, visitors }, taskList, travel] = await Promise.all([
           weather.get(force),
           lake ? lake.get(force) : null,
           calendar.events(day, addDays(day, evening ? 2 : 1), force),
@@ -388,6 +391,7 @@ export class Dashboard {
           waste ? waste.pickups(force) : null,
           this.guestFilter(now, ctx),
           tasks ? tasks.list(force) : undefined,
+          commute ? commute.get(force) : undefined,
         ]);
         // Bundles must be out by 7:00, so tomorrow's collection shows the day before.
         const collections = pickups ? [...pickupEntries(pickups, day), ...pickupEntries(pickups, tomorrow, 'morgen')] : [];
@@ -403,6 +407,7 @@ export class Dashboard {
           now,
           guest,
           welcome: guest && wifi ? { guests: visitors, wifi: wifiPayload(wifi) } : undefined,
+          commute: commute ? { label: commute.label, travel: travel ?? null } : undefined,
           battery: this.lowBattery(ctx),
           birthdays: birthdaysOn(this.opts.birthdays ?? [], now),
           // Bring! lists items in the order they were added: «Dringend» first, then the newest, for the box.

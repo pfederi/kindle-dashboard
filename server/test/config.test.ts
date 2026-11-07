@@ -53,6 +53,17 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...base, STATIONS: st('5') })).toThrow(/STATIONS\[0\]\.walk/);
   });
 
+  it('sets up the scooter travel time only with key, start and destination, and checks them', () => {
+    expect(loadConfig(base).commute).toBeNull();
+    const env = { ...base, HERE_API_KEY: ' k3y ', COMMUTE_FROM: '47.411, 8.544', COMMUTE_TO: '47.378,8.54' };
+    expect(loadConfig(env).commute).toEqual({ apiKey: 'k3y', from: { lat: 47.411, lon: 8.544 }, to: { lat: 47.378, lon: 8.54 }, highway: true, label: 'Zur Arbeit' });
+    expect(loadConfig({ ...env, COMMUTE_HIGHWAY: '0', COMMUTE_LABEL: 'Zum Geschäft' }).commute).toMatchObject({ highway: false, label: 'Zum Geschäft' });
+    expect(() => loadConfig({ ...base, HERE_API_KEY: 'k3y' })).toThrow(/COMMUTE_FROM, COMMUTE_TO/);
+    expect(() => loadConfig({ ...env, COMMUTE_TO: 'Bahnhofstrasse 1' })).toThrow(/COMMUTE_TO must look like/);
+    expect(() => loadConfig({ ...env, COMMUTE_FROM: '95,8' })).toThrow(/COMMUTE_FROM/);
+    expect(() => loadConfig({ ...env, COMMUTE_HIGHWAY: 'ja' })).toThrow(/COMMUTE_HIGHWAY/);
+  });
+
   it('reads the guest WLAN, open networks too, and checks its limits', () => {
     expect(loadConfig(base).guestWifi).toBeNull();
     expect(loadConfig({ ...base, GUEST_WIFI_SSID: ' Gast-Netz ', GUEST_WIFI_PASSWORD: 'sonnenblume42' }).guestWifi).toEqual({ ssid: 'Gast-Netz', password: 'sonnenblume42' });

@@ -6,7 +6,7 @@ html,body{width:${LAYOUT.width}px;height:${LAYOUT.height}px;overflow:hidden;back
 .screen{width:${LAYOUT.width}px;height:${LAYOUT.height}px;display:flex;flex-direction:column}
 .main{flex:1;min-height:0;overflow:hidden;padding:34px 42px 20px;display:flex;flex-direction:column}
 .serif{font-family:'Source Serif 4',serif}
-.rule{border-top:6px solid #000;margin:20px 0;flex:none}
+.rule{border-top:3px solid #000;margin:20px 0;flex:none}
 .meta{font-size:30px;color:#555}
 .ellipsis{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .icon{display:inline-flex;vertical-align:-0.12em}
@@ -62,8 +62,11 @@ html,body{width:${LAYOUT.width}px;height:${LAYOUT.height}px;overflow:hidden;back
 .more{font-size:32px;color:#555;line-height:50px}
 .ev .more-inline{flex:none;font-size:32px;color:#555}
 .transit{margin-top:auto;flex:none}
+.commute{display:flex;align-items:center;gap:16px;font-size:38px;line-height:50px;margin:-4px 0 14px;white-space:nowrap;overflow:hidden}
+.commute .none{color:#555}
+.commute .late{background:#000;color:#fff;border-radius:6px;padding:0 10px}
 .ov{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
-.ov .col{padding:0 22px;border-right:3px solid #999;min-width:0}
+.ov .col{padding:0 22px;border-right:2px solid #999;min-width:0}
 .ov .col:first-child{padding-left:0}
 .ov .col:last-child{border-right:0;padding-right:0}
 .ov .stn{font-size:32px;font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:8px}
@@ -83,7 +86,9 @@ html,body{width:${LAYOUT.width}px;height:${LAYOUT.height}px;overflow:hidden;back
 /* Night screen */
 /* Greeting left, QR code right, filling the agenda. */
 .welcome{display:flex;align-items:center;gap:32px;height:100%}
-.welcome .hello{flex:1;min-width:0;font-size:60px;font-weight:700;line-height:1.15;overflow:hidden}
+/* At most three lines, so the greeting never pushes past the agenda; long names in a smaller size. */
+.welcome .hello{flex:1;min-width:0;font-size:60px;font-weight:700;line-height:1.15;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3}
+.welcome .hello.long{font-size:46px}
 .welcome .qr{flex:none;line-height:0}
 .gn{display:flex;align-items:center;justify-content:center;gap:36px;padding:70px 0 60px;flex:none}
 .gn .serif{font-size:110px;font-weight:700;line-height:1}
@@ -132,7 +137,7 @@ html,body{width:${LAYOUT.width}px;height:${LAYOUT.height}px;overflow:hidden;back
 .line{display:inline-block;background:#000;color:#fff;font-weight:700;font-size:30px;line-height:40px;border-radius:8px;padding:0 10px;min-width:46px;text-align:center}
 .line.rail{background:#fff;color:#000;border:4px solid #000;line-height:32px}
 .line.sm{font-size:24px;line-height:32px;min-width:54px;padding:0 6px}
-.widget{flex:none;height:150px;display:flex;align-items:center;gap:30px;background:#ececec;border-top:6px solid #000;padding:0 42px}
+.widget{flex:none;height:150px;display:flex;align-items:center;gap:30px;background:#ececec;border-top:3px solid #000;padding:0 42px}
 /* The whole text side opens Einkauf: full widget height, so the tap area is large. */
 .widget .txt{flex:1;min-width:0;align-self:stretch;display:flex;flex-direction:column;justify-content:center}
 .widget .lbl{font-size:28px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#000;display:flex;align-items:center;gap:10px}
@@ -140,8 +145,8 @@ html,body{width:${LAYOUT.width}px;height:${LAYOUT.height}px;overflow:hidden;back
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;background:#000;color:#fff;font-weight:700;font-size:36px;border-radius:14px;padding:0 30px;height:96px;white-space:nowrap;flex:none}
 /* On Heute the button only has an outline, on the grey of the widget. */
 .widget .btn{background:transparent;color:#000;border:4px solid #000;box-sizing:border-box}
-.tabs{flex:none;height:130px;display:flex;border-top:6px solid #000}
-.tabs .tab{flex:1;display:flex;align-items:center;justify-content:center;font-size:36px;border-right:3px solid #999}
+.tabs{flex:none;height:130px;display:flex;border-top:3px solid #000}
+.tabs .tab{flex:1;display:flex;align-items:center;justify-content:center;font-size:36px;border-right:2px solid #999}
 .tabs .tab:last-child{border-right:0}
 .tabs .tab.on{background:#000;color:#fff;font-weight:700}
 .title{font-size:56px;font-weight:700}

@@ -41,7 +41,7 @@ Ein alter Kindle als Info-Bildschirm für den Eingang: Wetter, Termine, Abfahrte
   <img src="docs/screenshots/hinzufuegen.png" width="160" alt="Hinzufügen">
 </p>
 
-Verspätungen ab 5 Minuten werden schwarz hinterlegt. Abfahrten, die man zu Fuss nicht mehr erreicht, sind grau; über jeder Haltestelle steht, wann man losgehen muss («los 07:45»). In der Nachtruhe (Standard 00:00–05:30) zeigt das Dashboard einen ruhigen Nachtbildschirm mit dem Wichtigsten des kommenden Tages; der Kindle schaltet dann das WLAN aus, um Akku zu sparen. Ein Tap weckt es wieder (das dauert ein paar Sekunden), beim Beenden des Dashboards ist es wieder an. Ohne Bedienung kehrt das Dashboard nach 2 Minuten zu «Heute» zurück. Fällt der Akku auf 20 % oder weniger und hängt der Kindle nicht am Strom, steht oben rechts in «Heute» und auf dem Nachtbildschirm ein leerer Akku mit dem Ladestand.
+Verspätungen ab 5 Minuten werden schwarz hinterlegt. Optional steht über den Abfahrten die Fahrzeit mit dem Roller (125 cm³) zur Arbeit beim aktuellen Verkehr, z. B. «Zur Arbeit **18 Min.** an 07:58», ab 3 Minuten mehr als üblich mit «+4 Min. Stau» (`HERE_API_KEY`, `COMMUTE_FROM`, `COMMUTE_TO`). Abfahrten, die man zu Fuss nicht mehr erreicht, sind grau; über jeder Haltestelle steht, wann man losgehen muss («los 07:45»). In der Nachtruhe (Standard 00:00–05:30) zeigt das Dashboard einen ruhigen Nachtbildschirm mit dem Wichtigsten des kommenden Tages; der Kindle schaltet dann das WLAN aus, um Akku zu sparen. Ein Tap weckt es wieder (das dauert ein paar Sekunden), beim Beenden des Dashboards ist es wieder an. Ohne Bedienung kehrt das Dashboard nach 2 Minuten zu «Heute» zurück. Fällt der Akku auf 20 % oder weniger und hängt der Kindle nicht am Strom, steht oben rechts in «Heute» und auf dem Nachtbildschirm ein leerer Akku mit dem Ladestand.
 
 **Gast-Modus:** Wenn Besuch da ist, sind alle Termintitel schwarz überdeckt; Uhrzeit, Kalenderkürzel und Papier-/Kartonsammlung bleiben stehen, ein Schloss neben dem Titel zeigt den Modus an. Er schaltet sich selbst ein, solange ein Termin läuft, dessen Titel mit «Besuch» beginnt (z. B. «Besuch Müllers» 18–23 Uhr) – dieser Termin selbst bleibt lesbar. Von Hand: siehe [Bedienung](#bedienung).
 
@@ -103,6 +103,10 @@ Der Server läuft als Docker-Container, z. B. in [Coolify](https://coolify.io).
 | `WEATHER_LAT`, `WEATHER_LON` | | Ort für Wetter, Standard Zürich-Oerlikon (`47.411`, `8.544`) |
 | `WASTE_ZIP` | | Postleitzahl für Papier- und Kartonsammlung der Stadt Zürich, Standard `8050`; leer = aus |
 | `GUEST_WIFI_SSID`, `GUEST_WIFI_PASSWORD` | | Gäste-WLAN als QR-Code in der Begrüssung im Gast-Modus; ohne Passwort = offenes Netz. Ohne `GUEST_WIFI_SSID` bleibt der Gast-Modus wie bisher (geschwärzte Titel). Das Passwort nur in Coolify eintragen. |
+| `HERE_API_KEY` | | Schlüssel von [HERE](https://platform.here.com) (kostenloses Konto) für die Roller-Fahrzeit mit Verkehr; nur in Coolify |
+| `COMMUTE_FROM`, `COMMUTE_TO` | | Start und Ziel der Roller-Fahrt als `Breite,Länge`, z. B. `47.411,8.544` (in Google Maps Rechtsklick auf den Ort); nur in Coolify, nie im Repository |
+| `COMMUTE_HIGHWAY` | | `1` = Autobahn erlaubt (125 cm³, Standard), `0` = ohne |
+| `COMMUTE_LABEL` | | Text vor der Fahrzeit, Standard `Zur Arbeit` |
 | `QUIET_HOURS` | | Nachtruhe mit Nachtbildschirm, ohne Aktualisierung und mit ausgeschaltetem WLAN (spart Akku), Standard `00:00-05:30`, über Mitternacht möglich (z. B. `22:30-06:00`); leer = aus |
 | `NTFY_TOPIC` | | Push-Benachrichtigung über [ntfy](https://ntfy.sh), wenn der Kindle sich nicht mehr meldet oder der Akku fast leer ist: ein schwer erratbarer Name, z. B. `kindle-` + 12 zufällige Zeichen |
 | `NTFY_SERVER` | | ntfy-Server, Standard `https://ntfy.sh` |
@@ -226,7 +230,7 @@ Gerätedetails und Erkenntnisse vom Testen stehen in [`client/DEVICE_FACTS.md`](
 ## Sicherheit
 
 - **Zugang:** Der Kindle meldet sich mit einem zufälligen 256-Bit-Token, die Vorschau mit Benutzer `admin` und Passwort; beides wird in konstanter Zeit verglichen. Nach 20 falschen Vorschau-Passwörtern sperrt der Server die Vorschau für 15 Minuten.
-- **Geheimnisse** (Token, Passwort, iCal-Adressen, Bring!-Zugang, ntfy-Thema, Gäste-WLAN-Passwort) stehen nur in Coolify bzw. in `config.json` auf dem Kindle – nie im Repository und nie in Logs. In Coolify bei diesen Variablen **keinen** Haken bei «Build Variable» setzen.
+- **Geheimnisse** (Token, Passwort, iCal-Adressen, Bring!-Zugang, ntfy-Thema, Gäste-WLAN-Passwort, HERE-Schlüssel, Start und Ziel der Roller-Fahrt) stehen nur in Coolify bzw. in `config.json` auf dem Kindle – nie im Repository und nie in Logs. In Coolify bei diesen Variablen **keinen** Haken bei «Build Variable» setzen.
 - **Transport:** HTTPS mit Let's Encrypt, HSTS; der Kindle prüft Zertifikate mit eigener CA-Liste und mindestens TLS 1.2.
 - **Server:** Container ohne root-Rechte; Taps werden geprüft; gerenderte Seiten haben keinen Netzzugriff; Sicherheitsheader und für die Vorschau eine strenge Content-Security-Policy, kein Caching.
 - **Kindle verloren?** In Coolify ein neues `DEVICE_TOKEN` setzen – das alte ist sofort wertlos.
@@ -271,6 +275,7 @@ Go 1.23, gebaut und getestet in Docker (`make test`, `make build`). Ein statisch
 | Papier- und Kartonsammlung | [OpenERZ](https://openerz.metaodi.ch) (Entsorgung + Recycling Zürich) |
 | Einkaufsliste | Bring! (inoffizielle API der Apps, wie [bring-api](https://github.com/miaucl/bring-api)) |
 | Termine | iCal-Adressen der Kalender |
+| Roller-Fahrzeit | [HERE Routing API v8](https://www.here.com/docs/bundle/routing-api-developer-guide-v8/page/README.html), Modus `scooter` mit Echtzeitverkehr |
 | Symbole | [Lucide](https://lucide.dev); rennender Mann aus [Tabler Icons](https://tabler.io/icons) (MIT) |
 
 ## Architektur

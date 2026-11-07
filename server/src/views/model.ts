@@ -1,5 +1,6 @@
 import type { DayEntry } from '../sources/calendar.js';
 import type { ShoppingData } from '../sources/bring/source.js';
+import type { Commute } from '../sources/commute.js';
 import type { Departure } from '../sources/transit.js';
 import type { DailyWeather, Weather } from '../sources/weather.js';
 import type { AddMode, Notice } from '../state.js';
@@ -37,6 +38,8 @@ export interface HeuteModel {
   battery?: number | null;
   /** In guest mode with a guest WLAN: a greeting and the WLAN QR code instead of the events. */
   welcome?: { guests: string[]; wifi: string };
+  /** Scooter travel time above the departures; travel null = no data; absent = not configured. */
+  commute?: { label: string; travel: Commute | null };
   /** Open tasks, newest first; null = list unavailable; absent = no task list configured. */
   tasks?: TaskItem[] | null;
   boards: BoardModel[];

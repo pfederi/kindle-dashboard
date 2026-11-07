@@ -108,7 +108,8 @@ describe('PlaywrightRenderer', () => {
     // A dry day has no rain strip and one more agenda row; five full rows of events must fit.
     const five = Array.from({ length: 5 }, (_, i) => entry(`1${i}:00`, 'FAM', `Termin ${i}`));
     const dry = [{ ...full, weather: dryWeather() }, { ...full, weather: dryWeather(), events: five }, { ...evening, weather: dryWeather() }];
-    const combos = [full, evening, ...dry].flatMap((x) => [x, { ...x, tasks }, { ...x, tasks, birthdays: ['Marianne'] }, { ...x, birthdays: ['Marianne'] }]);
+    const commute = { label: 'Zur Arbeit', travel: { minutes: 18, delayMinutes: 12 } };
+    const combos = [full, evening, ...dry].flatMap((x) => [x, { ...x, tasks }, { ...x, tasks, birthdays: ['Marianne'] }, { ...x, birthdays: ['Marianne'] }, { ...x, commute }, { ...x, commute, tasks, birthdays: ['Marianne'] }]);
     for (const model of [m, { ...full, birthdays: ['Marianne', 'Simone'] }, ...combos]) {
       const b = await boxes(heuteHtml(model), ['.agenda', '.agenda > :last-child', '.transit', '.widget', '.tabs', '.ov .col:last-child .dep:last-child']);
       // .agenda clips its overflow: the last row must lie inside it.
@@ -134,7 +135,7 @@ describe('PlaywrightRenderer', () => {
       const { zones } = await renderer.render(heuteHtml(model));
       const box = zones.find((z) => z.action.startsWith('task:'))!;
       const add = zones.find((z) => z.action === 'nav:aufgabe')!;
-      expect(add.y).toBeGreaterThanOrEqual(box.y + box.h);
+      expect(add.y).toBeGreaterThanOrEqual(box.y + box.h - 1e-6); // touching is fine; layout px scale to fractions
     }
     const b = await boxes(heuteHtml(m), ['.transit', '.widget', '.tabs', '.ov .col:last-child .dep:last-child']);
     expect(b['.transit']!.bottom).toBeLessThanOrEqual(b['.widget']!.top);
@@ -214,7 +215,8 @@ describe('PlaywrightRenderer', () => {
     ];
     expect(cases[1]![1]).toBe('WIFI:T:WPA;S:Gäste\\;WLAN;P:a\\:b\\,c\\"d\\\\e123;;');
     for (const [guests, wifi] of cases) {
-      for (const model of [full, { ...full, evening: true }]) {
+      const commute = { label: 'Zur Arbeit', travel: { minutes: 18, delayMinutes: 4 } };
+      for (const model of [full, { ...full, evening: true }, { ...full, commute }, { ...full, evening: true, commute }]) {
         const html = heuteHtml({ ...model, guest: true, welcome: { guests, wifi } });
         const { png } = await renderer.render(html);
         const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });

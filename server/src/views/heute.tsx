@@ -5,6 +5,7 @@ import { describeWmo } from '../sources/wmo.js';
 import { LATE_MIN, leaveAt, reachable } from '../sources/transit.js';
 import { firstRainHour, type HourlyRain, nextHours, rainStartHour, type Weather } from '../sources/weather.js';
 import { AddTaskButton, BatteryMark, BIRTHDAY_ROWS, BirthdayBanner, EventList, GuestMark, Icon, LineBadge, names, TASK_ROWS, Tabs, TaskBox } from './components.js';
+import type { Commute } from '../sources/commute.js';
 import type { BoardModel, HeuteModel } from './model.js';
 import { page } from './page.js';
 import { qrSvg } from './qr.js';
@@ -160,6 +161,30 @@ function Board({ board, index, now }: { board: BoardModel; index: number; now: D
   );
 }
 
+/** Event rows the commute line takes from the agenda. */
+export const COMMUTE_ROWS = 1;
+/** Below this, a delay is noise and not shown. */
+export const COMMUTE_DELAY_MIN = 3;
+
+/** «Zur Arbeit 18 Min. · an 08:02 · +4 Min. Stau»: by scooter, leaving now, against the usual time of day. */
+function CommuteLine({ label, travel, now }: { label: string; travel: Commute | null; now: Date }) {
+  return (
+    <div class="commute">
+      <Icon name="scooter" size={40} />
+      <span>{label}</span>
+      {travel === null ? (
+        <span class="none">keine Verkehrsdaten</span>
+      ) : (
+        <>
+          <b>{travel.minutes} Min.</b>
+          <span>an {formatTime(new Date(now.getTime() + travel.minutes * 60_000))}</span>
+          {travel.delayMinutes >= COMMUTE_DELAY_MIN && <b class="late">+{travel.delayMinutes} Min. Stau</b>}
+        </>
+      )}
+    </div>
+  );
+}
+
 /** «Dringend» first, bold after the runner, then the rest (newest first). */
 function WidgetItems({ items }: { items: ShoppingItem[] }) {
   const urgent = items.filter((i) => i.urgent).map((i) => i.name);
@@ -196,14 +221,17 @@ function BringWidget({ shopping }: { shopping: ShoppingData }) {
 const hasTasks = (m: HeuteModel) => (m.tasks?.length ?? 0) > 0;
 
 /**
- * Event rows left in the agenda: one more on a dry day (no rain strip, about 1.8 rows of room); a birthday
- * greeting (compact in the evening) and the task box take some.
+ * Event rows left in the agenda before a birthday greeting: one more on a dry day (no rain strip, about
+ * 1.8 rows of room); the task box and the commute line above the departures take some.
  */
-const agendaRows = (m: HeuteModel) =>
-  MAX_EVENTS_HEUTE +
-  (showsRainStrip(m) ? 0 : 1) -
-  (m.birthdays?.length ? (m.evening ? 1 : BIRTHDAY_ROWS) : 0) -
-  (hasTasks(m) ? TASK_ROWS : 0);
+const rowsBeforeBirthday = (m: HeuteModel) =>
+  MAX_EVENTS_HEUTE + (showsRainStrip(m) ? 0 : 1) - (hasTasks(m) ? TASK_ROWS : 0) - (m.commute ? COMMUTE_ROWS : 0);
+
+/** The greeting is compact (one row) in the evening, and whenever the full one would leave no event row. */
+const compactBirthday = (m: HeuteModel) => (m.evening ?? false) || rowsBeforeBirthday(m) - BIRTHDAY_ROWS < 1;
+
+/** Event rows left in the agenda. */
+const agendaRows = (m: HeuteModel) => rowsBeforeBirthday(m) - (m.birthdays?.length ? (compactBirthday(m) ? 1 : BIRTHDAY_ROWS) : 0);
 
 /** A section title of the agenda; the first one carries the guest lock and «+ Aufgabe». */
 function AgendaTitle({ m, text, first, cls = 'section-title' }: { m: HeuteModel; text: string; first: boolean; cls?: string }) {
@@ -263,14 +291,15 @@ function EveningAgenda({ m }: { m: HeuteModel }) {
   );
 }
 
-/** QR code size on the device: fits the smallest agenda (rain strip, four departures, evening). */
+/** QR code size on the device: fits the smallest agenda (rain strip, four departures, evening); smaller with the commute line. */
 export const WELCOME_QR_PX = 150;
+export const WELCOME_QR_PX_COMMUTE = 128;
 
 /** Guest mode with a guest WLAN: greeting and QR code where the events are; network and password are not printed. */
-function Welcome({ guests, wifi }: { guests: string[]; wifi: string }) {
+function Welcome({ guests, wifi, qrPx }: { guests: string[]; wifi: string; qrPx: number }) {
   return (
     <div class="welcome">
-      <div class="hello serif">
+      <div class={names(guests).length > 18 ? 'hello serif long' : 'hello serif'}>
         Herzlich willkommen
         {guests.length > 0 ? (
           <>
@@ -281,7 +310,7 @@ function Welcome({ guests, wifi }: { guests: string[]; wifi: string }) {
           '!'
         )}
       </div>
-      <div class="qr" dangerouslySetInnerHTML={{ __html: qrSvg(wifi, WELCOME_QR_PX) }} />
+      <div class="qr" dangerouslySetInnerHTML={{ __html: qrSvg(wifi, qrPx) }} />
     </div>
   );
 }
@@ -302,10 +331,10 @@ function Heute({ m }: { m: HeuteModel }) {
         <div class="rule" />
         <div class={m.evening ? 'agenda evening' : 'agenda'} data-action="nav:woche" data-hold="guest">
           {m.welcome ? (
-            <Welcome guests={m.welcome.guests} wifi={m.welcome.wifi} />
+            <Welcome guests={m.welcome.guests} wifi={m.welcome.wifi} qrPx={m.commute ? WELCOME_QR_PX_COMMUTE : WELCOME_QR_PX} />
           ) : (
             <>
-              {m.birthdays && m.birthdays.length > 0 && <BirthdayBanner birthdays={m.birthdays} compact={m.evening} />}
+              {m.birthdays && m.birthdays.length > 0 && <BirthdayBanner birthdays={m.birthdays} compact={compactBirthday(m)} />}
               {m.tasks && <TaskBox tasks={m.tasks} />}
             </>
           )}
@@ -322,6 +351,7 @@ function Heute({ m }: { m: HeuteModel }) {
         </div>
         <div class="transit">
           <div class="rule" />
+          {m.commute && <CommuteLine label={m.commute.label} travel={m.commute.travel} now={m.now} />}
           <div class="ov">
             {m.boards.map((b, i) => (
               <Board board={b} index={i} now={m.now} />

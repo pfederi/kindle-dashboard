@@ -110,6 +110,7 @@ flowchart LR
 | Betreiber | sieht alle Ansichten unter `/preview` |
 | Open-Meteo | aktuelles Wetter, stündlich und täglich für 7 Tage (Temperatur, Regen, Wind in Knoten, Luftdruck, Sonnenzeiten) |
 | Alplakes (Eawag) | Oberflächentemperatur des Zürichsees (Simstrat-Modell) |
+| HERE Routing | Fahrzeit mit dem Roller (Modus `scooter`, Autobahn wählbar) mit Echtzeitverkehr und üblicher Fahrzeit |
 | Kalender | geheime iCal-Adressen, ein Kürzel pro Kalender |
 | transport.opendata.ch | Abfahrtstafeln (Linie, Zeit, Verspätung, Endhaltestelle, Zwischenhalte) |
 | OpenERZ | Sammeltermine Papier und Karton für eine Postleitzahl |
@@ -139,6 +140,7 @@ flowchart LR
 | `POST /tap` | HTTPS, Bearer | JSON `{x, y, hold?}` in Gerätepixeln, `hold: true` für einen Langdruck; Antwort neues PNG oder `204` |
 | `GET /healthz` | HTTPS | `ok` für den Healthcheck |
 | `GET /preview`, `/preview/:view` | HTTPS, Basic Auth (`admin`) | Übersicht, HTML oder PNG einer Ansicht (`?png=1`, `?station=N`, `?abend=1`, `?nacht=1`, `?akku=1`); `/preview/status` mit Kindle, Akkukurve und Datenquellen |
+| HERE (ausgehend) | HTTPS `GET router.hereapi.com/v8/routes?transportMode=scooter&return=summary,typicalDuration` mit `apiKey` | Fahrzeit und übliche Fahrzeit; alle 5 Min., nur solange «Heute» abgefragt wird; Fehler nennen nie die Adresse (Schlüssel) |
 | ntfy (ausgehend) | HTTPS `POST <NTFY_SERVER>/<NTFY_TOPIC>` | Meldung «Kindle meldet sich nicht» bzw. «wieder online», «Kindle-Akku fast leer», bei 5 % «Kindle-Akku: JETZT LADEN» |
 
 Alle Antworten tragen HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` und `Referrer-Policy: no-referrer`; die Vorschau zusätzlich `Cache-Control: no-store` und eine Content-Security-Policy ohne Skripte und fremde Inhalte.
@@ -197,7 +199,7 @@ flowchart TB
 | Gast-Modus | `guest.ts` | Wann Termintitel verborgen werden («Besuch»-Termine, Langdruck), Titel durch Balken ersetzen, Gästenamen aus den «Besuch»-Terminen |
 | Begrüssung | `views/heute.tsx`, `views/qr.ts` | «Herzlich willkommen …!» mit QR-Code fürs Gäste-WLAN statt der Termine in «Heute» im Gast-Modus |
 | Status | `status.ts`, `health.ts`, `views/status.tsx` | Letzte Abfrage und Akkuverlauf des Kindle, Erfolg und Fehler jeder Datenquelle (aus `TtlCache`); Seite `/preview/status` |
-| Datenquellen | `sources/weather.ts`, `lake.ts`, `calendar.ts`, `transit.ts`, `waste.ts`, `bring/` | Abruf und Aufbereitung je Quelle; Bring! mit zwei Listen (Einkauf, Aufgaben) über eine Anmeldung |
+| Datenquellen | `sources/weather.ts`, `lake.ts`, `calendar.ts`, `transit.ts`, `waste.ts`, `commute.ts`, `bring/` | Abruf und Aufbereitung je Quelle; Bring! mit zwei Listen (Einkauf, Aufgaben) über eine Anmeldung |
 | Zwischenspeicher | `cache.ts` | Ablaufzeit, Rückfall auf ältere Werte, gleichzeitige Abfragen bündeln |
 | Überwachung | `monitor.ts` | Merkt sich nach jedem Bild, wann der Kindle wiederkommen soll; meldet Ausfall und Rückkehr über ntfy, ebenso einen Akku ab 20 % |
 | Ansichten | `views/*.tsx`, `styles.ts`, `icons.ts` | Heute, Woche, Einkauf, Hinzufügen, Wetter, Haltestelle als Preact-Komponenten; SVG-Grafiken; gemeinsame Bausteine wie Terminliste (mit Balken im Gast-Modus) und Geburtstagsbanner in `components.tsx` |
@@ -450,6 +452,7 @@ flowchart LR
 | 25 | **WLAN in der Nachtruhe aus** statt Ruhezustand (Suspend) | Am Gerät getestet: wieder verbunden nach 6 s; Suspend hätte Touch abgeschaltet und ist mit angehaltener Oberfläche ungetestet | Ein Tap in der Nacht wartet einige Sekunden; der Prozessor bleibt wach |
 | 26 | **Begrüssung im Terminbereich statt geschwärzter Termine** bei konfiguriertem Gäste-WLAN, QR-Code auf dem Server erzeugt | Gäste sehen, was sie brauchen; Namen kommen ohne Pflege aus dem «Besuch»-Termin; QR-Bibliothek ohne Abhängigkeiten | Während eines Besuchs sind die Termine des Tages nur in der Vorschau sichtbar; das Passwort steckt nur im QR-Code, nicht als Text |
 | 27 | **Status-Seite ohne Speicher und ohne Skripte** | Kein Volume nötig; die strenge CSP der Vorschau bleibt; Tooltips über SVG-`<title>` | Verlauf beginnt nach jedem Deployment neu; höchstens 7 Tage |
+| 28 | **Roller-Fahrzeit über HERE** (Modus `scooter`) statt Google oder TomTom; Zeile über den Abfahrten, Verzögerung gegen die übliche Fahrzeit zur Tageszeit | Einziger Dienst mit eigenem Roller-Modus und Autobahn-Schalter für 125 cm³; grosszügiges Gratiskontingent | Kostet eine Terminzeile; Start und Ziel nur in Coolify; Trennlinien auf 3 px verschmälert, damit das Bild ruhiger bleibt |
 
 ---
 
