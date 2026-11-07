@@ -290,6 +290,9 @@ describe('Dashboard', () => {
     const back = await tapAction('close');
     expect(dash.view).toBe('heute');
     expect(back?.fullRefresh).toBe(true);
+    // The preview can act out a jam on the real route.
+    expect(await dash.previewHtml('arbeitsweg')).toContain('Verkehr wie üblich');
+    expect(await dash.previewHtml('arbeitsweg', { jam: true })).toContain('+7 Min. Stau');
   });
 
   it('previews «Arbeitsweg» without a commute configured, and leaves the device where it is', async () => {

@@ -13,7 +13,7 @@ import { type Departure, shortStop, type StationBoard, TRANSIT_TTL_MS, upcoming 
 import { type Pickup, pickupEntries } from './sources/waste.js';
 import type { Weather } from './sources/weather.js';
 import type { Commute } from './sources/commute.js';
-import type { CommuteDetail } from './sources/commute-route.js';
+import { type CommuteDetail, withJam } from './sources/commute-route.js';
 import {
   type Action,
   applyKey,
@@ -130,6 +130,8 @@ export interface PreviewOptions {
   moon?: number;
   /** This holiday's greeting, whatever the date. */
   holiday?: HolidayId;
+  /** «Arbeitsweg» with a jam acted out on the real route. */
+  jam?: boolean;
 }
 
 export const PREVIEW_BATTERY = 15;
@@ -143,6 +145,7 @@ interface RenderContext {
   lowBattery?: boolean;
   moon?: number;
   holiday?: HolidayId;
+  jam?: boolean;
 }
 /** From this hour Heute shows tonight's remaining events, tomorrow's and tomorrow's weather. */
 export const EVENING_HOUR = 19;
@@ -220,7 +223,7 @@ export class Dashboard {
       now = new Date(now);
       now.setHours(Math.floor(quiet.start / 60), (quiet.start % 60) + 30, 0, 0);
     }
-    return { now, station: opts.station ?? this.state.station, preview: true, guest: opts.guest, lowBattery: opts.lowBattery, moon: opts.moon, holiday: opts.holiday };
+    return { now, station: opts.station ?? this.state.station, preview: true, guest: opts.guest, lowBattery: opts.lowBattery, moon: opts.moon, holiday: opts.holiday, jam: opts.jam };
   }
 
   private async apply(action: Action): Promise<boolean> {
@@ -510,7 +513,8 @@ export class Dashboard {
           this.state = navigate(this.state, this.state.returnView);
           return this.html(this.state.view, force, ctx);
         }
-        return arbeitswegHtml({ now, label: commute.label, walk: commute.walkMinutes ?? 0, detail: await commute.route(force) });
+        const detail = await commute.route(force);
+        return arbeitswegHtml({ now, label: commute.label, walk: commute.walkMinutes ?? 0, detail: detail && ctx?.jam ? withJam(detail) : detail });
       }
       case 'station': {
         const index = ctx?.station ?? this.state.station;

@@ -29,7 +29,8 @@ function previewIndex(stations: string[]): string {
     ['Einkauf', 'einkauf', ''],
     ['Hinzufügen', 'hinzufuegen', ''],
     ['Wetter', 'wetter', ''],
-    ['Arbeitsweg: Route mit Stau', 'arbeitsweg', ''],
+    ['Arbeitsweg: Route mit Verkehr', 'arbeitsweg', ''],
+    ['Arbeitsweg mit Stau (nachgestellt)', 'arbeitsweg', 'stau=1'],
     ...stations.map((name, i): [string, string, string] => [`Haltestelle ${name}`, 'station', `station=${i}`]),
   ];
   const status = '<li><a href="/preview/status">Status: Kindle, Akku, Datenquellen</a></li><li><a href="/preview/nacht">Nachtbildschirm: Mondphasen und Feiertage</a></li>';
@@ -177,7 +178,7 @@ export function buildApp(opts: {
 
   app.get<{
     Params: { view: string };
-    Querystring: { png?: string; station?: string; abend?: string; nacht?: string; gast?: string; akku?: string; mond?: string; feiertag?: string };
+    Querystring: { png?: string; station?: string; abend?: string; nacht?: string; gast?: string; akku?: string; mond?: string; feiertag?: string; stau?: string };
   }>(
     '/preview/:view',
     { onRequest: previewAuth },
@@ -197,6 +198,7 @@ export function buildApp(opts: {
         lowBattery: req.query.akku === '1',
         moon: mond === undefined ? undefined : Number(mond),
         holiday: feiertag as HolidayId | undefined,
+        jam: req.query.stau === '1',
       };
       if (req.query.png === '1') return reply.header('Content-Type', 'image/png').send(await opts.dashboard.previewPng(view, previewOpts));
       return reply.header('Content-Type', 'text/html; charset=utf-8').send(await opts.dashboard.previewHtml(view, previewOpts));

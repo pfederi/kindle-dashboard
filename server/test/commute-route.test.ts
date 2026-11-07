@@ -10,6 +10,7 @@ import {
   parseRoutes,
   project,
   routesUrl,
+  withJam,
 } from '../src/sources/commute-route.js';
 import { fakeFetch, jsonResponse } from './helpers.js';
 
@@ -154,6 +155,19 @@ describe('commute route (HERE routing with traffic per stretch)', () => {
     expect(await fetchMap(png, 'k3y', view)).toBe('data:image/png;base64,AQID');
     await expect(fetchMap(fakeFetch(() => new Response('no', { status: 401 })), 'k3y', view)).rejects.toThrow(/^here map HTTP 401$/);
     await expect(fetchMap(fakeFetch(() => jsonResponse({ error: 'x' })), 'k3y', view)).rejects.toThrow(/^here map: not a PNG$/);
+  });
+
+  it('acts out a jam in the middle of the fastest route for the preview, and leaves the alternative alone', () => {
+    const routes = parseRoutes(HERE).map((r) => ({ ...r, stretches: r.stretches.map((s) => ({ ...s, ratio: 1 })) }));
+    // 1000 m in ten stretches: midpoints at 5 %, 15 %, … 95 %.
+    routes[0]!.stretches = Array.from({ length: 10 }, (_, k) => ({ points: PTS.slice(0, 2), ratio: 1, name: `S${k}`, length: 100 }));
+    const detail = { routes, view: { lat: 47.38, lon: 8.53, zoom: 14 }, image: null };
+    const jammed = withJam(detail);
+    expect(jammed.routes[0]!.stretches.map((s) => s.ratio)).toEqual([1, 1, 0.6, 0.6, 0.3, 0.3, 1, 1, 1, 1]);
+    expect(jammed.routes[0]).toMatchObject({ minutes: routes[0]!.minutes + 7, delayMinutes: routes[0]!.delayMinutes + 7 });
+    expect(jammed.routes[1]).toBe(routes[1]);
+    // The real route is not touched.
+    expect(detail.routes[0]!.stretches[4]!.ratio).toBe(1);
   });
 
   describe('CommuteRouteSource', () => {

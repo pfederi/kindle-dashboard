@@ -152,6 +152,24 @@ export async function fetchRoutes(fetchFn: FetchFn, c: CommuteConfig): Promise<C
   return parseRoutes(await res.json());
 }
 
+/**
+ * A jam acted out on the fastest route, for the preview when the roads are free: slow-moving from
+ * a quarter of the way, jammed from 40 to 60 %, seven minutes late.
+ */
+export function withJam(detail: CommuteDetail): CommuteDetail {
+  const [main, ...rest] = detail.routes;
+  if (!main) return detail;
+  const total = main.stretches.reduce((sum, s) => sum + s.length, 0) || 1;
+  let done = 0;
+  const stretches = main.stretches.map((s) => {
+    const at = (done + s.length / 2) / total;
+    done += s.length;
+    const ratio = at >= 0.4 && at < 0.6 ? Math.min(s.ratio, 0.3) : at >= 0.25 && at < 0.4 ? Math.min(s.ratio, 0.6) : s.ratio;
+    return { ...s, ratio };
+  });
+  return { ...detail, routes: [{ minutes: main.minutes + 7, delayMinutes: Math.max(main.delayMinutes, 0) + 7, stretches }, ...rest] };
+}
+
 // Web Mercator as used by map tiles: the world is 256 × 2^zoom px wide.
 const TILE = 256;
 const worldX = (lon: number, zoom: number) => ((lon + 180) / 360) * TILE * 2 ** zoom;
