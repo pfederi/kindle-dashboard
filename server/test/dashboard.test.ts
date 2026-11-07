@@ -277,6 +277,53 @@ describe('Dashboard', () => {
     expect(await dash.previewHtml('heute', { lowBattery: true })).toContain('15 %');
   });
 
+  describe('«Tag starten» on the night screen', () => {
+    const quietHours = { start: 0, end: 7 * 60 };
+
+    it('a tap on the night screen shows Heute with the regular refresh until the quiet hours end', async () => {
+      const { dash, renderer, clock, tapAction } = setup({}, { at: '2026-11-04T05:00:00+01:00', quietHours });
+      const night = await dash.screen();
+      expect(renderer.lastHtml).toContain('view-nacht');
+      expect(renderer.lastHtml).toContain('Antippen: Tag starten');
+      expect(night.refreshSeconds).toBe(2 * 3600);
+      const day = await tapAction('day');
+      expect(renderer.lastHtml).toContain('view-heute');
+      expect([day?.refreshSeconds, day?.fullRefresh]).toEqual([120, true]);
+      clock.set('2026-11-04T06:30:00+01:00');
+      expect((await dash.screen()).refreshSeconds).toBe(120);
+      expect(renderer.lastHtml).toContain('view-heute');
+      // The next night starts as usual.
+      clock.set('2026-11-05T00:30:00+01:00');
+      await dash.screen();
+      expect(renderer.lastHtml).toContain('view-nacht');
+    });
+
+    it('the tabs on the night screen still work, and previews keep showing the night', async () => {
+      const { dash, renderer, tapAction } = setup({}, { at: '2026-11-04T05:00:00+01:00', quietHours });
+      await dash.screen();
+      await tapAction('nav:woche');
+      expect(renderer.lastHtml).toContain('view-woche');
+      await tapAction('nav:heute');
+      await tapAction('day');
+      expect(await dash.previewHtml('heute', { night: true })).toContain('view-nacht');
+    });
+  });
+
+  it('shows the moon of the night and a holiday greeting; previews choose phase and holiday', async () => {
+    const { dash, renderer, clock } = setup({}, { at: '2026-12-25T07:40:00+01:00', quietHours: { start: 0, end: 330 } });
+    await dash.screen();
+    expect(renderer.lastHtml).toContain('Frohe Weihnachten!');
+    clock.set('2026-12-26T01:00:00+01:00');
+    await dash.screen();
+    expect(renderer.lastHtml).toContain('Frohe Weihnachten!');
+    expect(renderer.lastHtml).toMatch(/class="moon">(Zunehmend|Abnehmend|Vollmond|Neumond)[^<]* · \d+ %/);
+    clock.set('2026-11-03T07:40:00+01:00');
+    const html = await dash.previewHtml('heute', { night: true, moon: 180, holiday: 'ostern' });
+    expect(html).toContain('Vollmond · 100 %');
+    expect(html).toContain('Frohe Ostern!');
+    expect(await dash.previewHtml('heute', { holiday: 'august' })).toContain('Schönen 1. August!');
+  });
+
   it('previews the night screen by day', async () => {
     const quietHours = { start: 0, end: 330 };
     const { dash } = setup({}, { quietHours });
@@ -675,10 +722,14 @@ describe('Dashboard', () => {
       expect(renderer.lastHtml).not.toContain('Happy Birthday');
     });
 
-    it('greets on the night screen for the day the night leads into', async () => {
+    it('greets on the night screen only from midnight on, even when the night starts at 22:00', async () => {
       const { dash, renderer, clock } = setup({}, { at: '2026-11-06T23:00:00+01:00', quietHours: { start: 22 * 60, end: 6 * 60 }, birthdays });
       await dash.screen();
       expect(renderer.lastHtml).toContain('view-nacht');
+      expect(renderer.lastHtml).toContain('Samstag, 7. November'); // already the coming day
+      expect(renderer.lastHtml).not.toContain('Happy Birthday');
+      clock.set('2026-11-07T00:00:00+01:00');
+      await dash.screen();
       expect(renderer.lastHtml).toContain('Happy Birthday Marianne &amp; Simone!');
       clock.set('2026-11-07T23:00:00+01:00');
       await dash.screen();

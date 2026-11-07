@@ -139,7 +139,7 @@ flowchart LR
 | `GET /screen.png` | HTTPS, `Authorization: Bearer <DEVICE_TOKEN>`; optional `X-Battery` (0–100) und `X-Charging: 1` | PNG 600 × 800, Header `ETag`, `X-Refresh-Seconds`, `X-Full-Refresh` |
 | `POST /tap` | HTTPS, Bearer | JSON `{x, y, hold?}` in Gerätepixeln, `hold: true` für einen Langdruck; Antwort neues PNG oder `204` |
 | `GET /healthz` | HTTPS | `ok` für den Healthcheck |
-| `GET /preview`, `/preview/:view` | HTTPS, Basic Auth (`admin`) | Übersicht, HTML oder PNG einer Ansicht (`?png=1`, `?station=N`, `?abend=1`, `?nacht=1`, `?akku=1`); `/preview/status` mit Kindle, Akkukurve und Datenquellen |
+| `GET /preview`, `/preview/:view` | HTTPS, Basic Auth (`admin`) | Übersicht, HTML oder PNG einer Ansicht (`?png=1`, `?station=N`, `?abend=1`, `?nacht=1`, `?akku=1`, `?mond=0–359`, `?feiertag=neujahr|ostern|august|weihnachten`); `/preview/nacht` mit allen Mondphasen und Feiertagen; `/preview/status` mit Kindle, Akkukurve und Datenquellen |
 | HERE (ausgehend) | HTTPS `GET router.hereapi.com/v8/routes?transportMode=scooter&return=summary,typicalDuration` mit `apiKey` | Fahrzeit und übliche Fahrzeit; alle 5 Min., nur solange «Heute» abgefragt wird; Fehler nennen nie die Adresse (Schlüssel) |
 | ntfy (ausgehend) | HTTPS `POST <NTFY_SERVER>/<NTFY_TOPIC>` | Meldung «Kindle meldet sich nicht» bzw. «wieder online», «Kindle-Akku fast leer», bei 5 % «Kindle-Akku: JETZT LADEN» |
 
@@ -204,7 +204,8 @@ flowchart TB
 | Überwachung | `monitor.ts` | Merkt sich nach jedem Bild, wann der Kindle wiederkommen soll; meldet Ausfall und Rückkehr über ntfy, ebenso einen Akku ab 20 % |
 | Ansichten | `views/*.tsx`, `styles.ts`, `icons.ts` | Heute, Woche, Einkauf, Hinzufügen, Wetter, Haltestelle als Preact-Komponenten; SVG-Grafiken; gemeinsame Bausteine wie Terminliste (mit Balken im Gast-Modus) und Geburtstagsbanner in `components.tsx` |
 | Renderer | `render/` | Chromium (Playwright), Bildschirmgrösse und Skalierung, Graustufen; blockiert jeden Netzwerkzugriff gerenderter Seiten |
-| Nachtbildschirm | `views/nacht.tsx` | «Gute Nacht» mit Wetter, Terminen und Geburtstagsgruss des kommenden Tages während der Nachtruhe |
+| Nachtbildschirm | `views/nacht.tsx`, `moon.ts` | «Gute Nacht» mit Mondhimmel (Phase aus Sonnen- und Mondlänge berechnet), Wetter, Terminen und Grüssen des kommenden Tages während der Nachtruhe; Antippen startet den Tag; Vorschau `/preview/nacht` |
+| Feiertage | `holidays.ts` | Neujahr, Ostern (Sonntag und Montag, berechnet), 1. August, Weihnachten (24.–26.12.) als Gruss wie ein Geburtstag |
 
 Aktualisierungsintervalle der Zwischenspeicher:
 
@@ -453,6 +454,7 @@ flowchart LR
 | 26 | **Begrüssung im Terminbereich statt geschwärzter Termine** bei konfiguriertem Gäste-WLAN, QR-Code auf dem Server erzeugt | Gäste sehen, was sie brauchen; Namen kommen ohne Pflege aus dem «Besuch»-Termin; QR-Bibliothek ohne Abhängigkeiten | Während eines Besuchs sind die Termine des Tages nur in der Vorschau sichtbar; das Passwort steckt nur im QR-Code, nicht als Text |
 | 27 | **Status-Seite ohne Speicher und ohne Skripte** | Kein Volume nötig; die strenge CSP der Vorschau bleibt; Tooltips über SVG-`<title>` | Verlauf beginnt nach jedem Deployment neu; höchstens 7 Tage |
 | 28 | **Roller-Fahrzeit über HERE** (Modus `scooter`) statt Google oder TomTom; Zeile über den Abfahrten, Verzögerung gegen die übliche Fahrzeit zur Tageszeit | Einziger Dienst mit eigenem Roller-Modus und Autobahn-Schalter für 125 cm³; grosszügiges Gratiskontingent | Kostet eine Terminzeile; Start und Ziel nur in Coolify; Trennlinien auf 3 px verschmälert, damit das Bild ruhiger bleibt |
+| 29 | **«Tag starten» per Tipp auf den Nachtbildschirm**, gültig bis zum Ende dieser Nachtruhe; Grüsse nachts erst ab Mitternacht; Mondphase lokal berechnet | Wer früher aufsteht, will nicht die Konfiguration ändern; ein Gruss für morgen um 22 Uhr wirkt verfrüht; keine weitere Datenquelle | Ein versehentlicher Tipp weckt das Dashboard bis zum Morgen (WLAN an); der Schalter liegt nur im Arbeitsspeicher |
 
 ---
 

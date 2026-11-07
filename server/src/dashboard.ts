@@ -4,6 +4,8 @@ import type { BirthdayConfig, GuestWifi, QuietHours } from './config.js';
 import { addDays, isoDate, startOfDay } from './format.js';
 import { guestActive, hideEntries, toggleGuest, visitorNames } from './guest.js';
 import { type Battery, batteryLow } from './monitor.js';
+import { HOLIDAYS, type HolidayId, holidayOn } from './holidays.js';
+import { moonPhase } from './moon.js';
 import type { Renderer } from './render/renderer.js';
 import { type ShoppingSource, urgentFirst } from './sources/bring/source.js';
 import { type CalendarEvent, type DayEntry, entriesForDay } from './sources/calendar.js';
@@ -21,6 +23,7 @@ import {
   navigate,
   type Notice,
   parseAction,
+  quietEnd,
   refreshSeconds,
   takeFullRefresh,
   type ViewName,
@@ -115,6 +118,10 @@ export interface PreviewOptions {
   guest?: boolean;
   /** The battery as at PREVIEW_BATTERY %, whatever the Kindle reports. */
   lowBattery?: boolean;
+  /** The moon at this elongation (0 new, 180 full) instead of tonight's. */
+  moon?: number;
+  /** This holiday's greeting, whatever the date. */
+  holiday?: HolidayId;
 }
 
 export const PREVIEW_BATTERY = 15;
@@ -126,6 +133,8 @@ interface RenderContext {
   preview: boolean;
   guest?: boolean;
   lowBattery?: boolean;
+  moon?: number;
+  holiday?: HolidayId;
 }
 /** From this hour Heute shows tonight's remaining events, tomorrow's and tomorrow's weather. */
 export const EVENING_HOUR = 19;
@@ -152,6 +161,20 @@ export class Dashboard {
     if (ctx?.lowBattery) return PREVIEW_BATTERY;
     // A preview shows what the Kindle shows.
     return batteryLow(this.battery) ? this.battery.level : null;
+  }
+
+  /**
+   * Whether the night screen is due: in the quiet hours, unless «Tag starten» was tapped this night.
+   * Previews ignore that tap, so the night stays previewable.
+   */
+  private night(now: Date, ctx?: RenderContext): boolean {
+    if (!isQuiet(now, this.opts.quietHours)) return false;
+    return ctx?.preview === true || this.state.dayUntil === null || now.getTime() >= this.state.dayUntil;
+  }
+
+  /** The holiday of `day`, or the one a preview asks for. */
+  private holiday(day: Date, ctx?: RenderContext) {
+    return ctx?.holiday ? HOLIDAYS[ctx.holiday] : holidayOn(day);
   }
 
   async screen(): Promise<Screen> {
@@ -189,7 +212,7 @@ export class Dashboard {
       now = new Date(now);
       now.setHours(Math.floor(quiet.start / 60), (quiet.start % 60) + 30, 0, 0);
     }
-    return { now, station: opts.station ?? this.state.station, preview: true, guest: opts.guest, lowBattery: opts.lowBattery };
+    return { now, station: opts.station ?? this.state.station, preview: true, guest: opts.guest, lowBattery: opts.lowBattery, moon: opts.moon, holiday: opts.holiday };
   }
 
   private async apply(action: Action): Promise<boolean> {
@@ -247,6 +270,13 @@ export class Dashboard {
           this.state = { ...this.state, addMode: action.mode, input: '', status: null, added: [], tiles: null, urgentOffer: null };
         }
         return false;
+      case 'day': {
+        // «Tag starten»: Heute with the regular refresh until the quiet hours end; the next night starts as usual.
+        const now = this.opts.clock();
+        const quiet = this.opts.quietHours;
+        if (quiet && isQuiet(now, quiet)) this.state = { ...navigate(this.state, 'heute'), dayUntil: quietEnd(now, quiet).getTime(), fullRefreshPending: true };
+        return false;
+      }
       case 'guest': {
         const now = this.opts.clock();
         const events = await this.opts.sources.calendar.events(now, new Date(now.getTime() + 1));
@@ -335,7 +365,7 @@ export class Dashboard {
     const { png, zones } = await this.opts.renderer.render(html);
     const { state, full } = takeFullRefresh({ ...this.state, zones }, now.getTime());
     this.state = state;
-    let refresh = refreshSeconds(now, this.opts.refreshSeconds, this.opts.quietHours);
+    let refresh = refreshSeconds(now, this.opts.refreshSeconds, this.night(now) ? this.opts.quietHours : null);
     // Outside Heute the next poll comes exactly when the view reset is due, even during quiet hours,
     // so the screen returns to Heute after viewResetSeconds rather than at the next regular poll.
     if (this.state.view !== 'heute') {
@@ -355,6 +385,7 @@ export class Dashboard {
   private async nachtHtmlFor(now: Date, force: boolean, ctx?: RenderContext): Promise<string> {
     const { weather, waste, calendar } = this.opts.sources;
     const day = startOfDay(now.getHours() >= 12 ? addDays(now, 1) : now);
+    const afterMidnight = isoDate(day) === isoDate(now);
     const [w, events, pickups, { guest, show }] = await Promise.all([
       weather.get(force),
       calendar.events(day, addDays(day, 1), force),
@@ -367,7 +398,10 @@ export class Dashboard {
       weather: w,
       entries: events ? show([...pickupEntries(pickups ?? [], day), ...entriesForDay(events, day, now)]) : null,
       guest,
-      birthdays: birthdaysOn(this.opts.birthdays ?? [], day),
+      // Greetings from midnight on, even when the night screen starts earlier (e.g. 22:00).
+      birthdays: afterMidnight ? birthdaysOn(this.opts.birthdays ?? [], day) : [],
+      holiday: afterMidnight || ctx?.holiday ? this.holiday(day, ctx) : null,
+      moon: moonPhase(now, ctx?.moon),
       battery: this.lowBattery(ctx),
     });
   }
@@ -378,7 +412,7 @@ export class Dashboard {
     const { weather, lake, waste, calendar, transit, bring, tasks, commute } = this.opts.sources;
     switch (view) {
       case 'heute': {
-        if (isQuiet(now, this.opts.quietHours)) return this.nachtHtmlFor(now, force, ctx);
+        if (this.night(now, ctx)) return this.nachtHtmlFor(now, force, ctx);
         const day = startOfDay(now);
         const evening = now.getHours() >= EVENING_HOUR;
         const tomorrow = addDays(day, 1);
@@ -411,6 +445,7 @@ export class Dashboard {
           commute: commute ? { label: commute.label, travel: travel ? { ...travel, minutes: travel.minutes + (commute.walkMinutes ?? 0) } : null } : undefined,
           battery: this.lowBattery(ctx),
           birthdays: birthdaysOn(this.opts.birthdays ?? [], now),
+          holiday: this.holiday(now, ctx),
           // Bring! lists items in the order they were added: «Dringend» first, then the newest, for the box.
           tasks: taskList === undefined ? undefined : taskList.ok ? urgentFirst([...taskList.items].reverse()).map(({ key, name }) => ({ key, name })) : null,
           weather: w,

@@ -5,7 +5,7 @@ import type { DayEntry } from '../sources/calendar.js';
 import { describeWmo } from '../sources/wmo.js';
 import { LATE_MIN, leaveAt, reachable } from '../sources/transit.js';
 import { firstRainHour, type HourlyRain, nextHours, rainStartHour, type Weather } from '../sources/weather.js';
-import { AddTaskButton, BatteryMark, BIRTHDAY_ROWS, BirthdayBanner, EventList, GuestMark, Icon, LineBadge, names, TASK_ROWS, Tabs, TaskBox } from './components.js';
+import { AddTaskButton, BatteryMark, BIRTHDAY_ROWS, BirthdayBanner, EventList, GuestMark, HolidayBanner, Icon, LineBadge, names, Tabs, TASK_ROWS, TaskBox } from './components.js';
 import type { Commute } from '../sources/commute.js';
 import type { BoardModel, HeuteModel } from './model.js';
 import { page } from './page.js';
@@ -231,8 +231,11 @@ const rowsBeforeBirthday = (m: HeuteModel) =>
 /** The greeting is compact (one row) in the evening, and whenever the full one would leave no event row. */
 const compactBirthday = (m: HeuteModel) => (m.evening ?? false) || rowsBeforeBirthday(m) - BIRTHDAY_ROWS < 1;
 
+/** A birthday or, failing that, a holiday greets above the events. */
+const hasGreeting = (m: HeuteModel) => (m.birthdays?.length ?? 0) > 0 || Boolean(m.holiday);
+
 /** Event rows left in the agenda. */
-const agendaRows = (m: HeuteModel) => rowsBeforeBirthday(m) - (m.birthdays?.length ? (compactBirthday(m) ? 1 : BIRTHDAY_ROWS) : 0);
+const agendaRows = (m: HeuteModel) => rowsBeforeBirthday(m) - (hasGreeting(m) ? (compactBirthday(m) ? 1 : BIRTHDAY_ROWS) : 0);
 
 /** Past events only while everything fits in `rows`; otherwise they give way to the next ones, oldest first. */
 function dropPast(entries: DayEntry[], rows: number): DayEntry[] {
@@ -346,7 +349,11 @@ function Heute({ m }: { m: HeuteModel }) {
             <Welcome guests={m.welcome.guests} wifi={m.welcome.wifi} qrPx={m.commute ? WELCOME_QR_PX_COMMUTE : WELCOME_QR_PX} />
           ) : (
             <>
-              {m.birthdays && m.birthdays.length > 0 && <BirthdayBanner birthdays={m.birthdays} compact={compactBirthday(m)} />}
+              {m.birthdays && m.birthdays.length > 0 ? (
+                <BirthdayBanner birthdays={m.birthdays} compact={compactBirthday(m)} />
+              ) : (
+                m.holiday && <HolidayBanner holiday={m.holiday} compact={compactBirthday(m)} />
+              )}
               {m.tasks && <TaskBox tasks={m.tasks} />}
             </>
           )}

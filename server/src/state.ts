@@ -20,6 +20,7 @@ export type Action =
   | { type: 'undo' }
   | { type: 'station'; index: number }
   | { type: 'guest' }
+  | { type: 'day' }
   | { type: 'task'; key: string }
   | { type: 'urgent'; key: string }
   | { type: 'urgent-added' }
@@ -49,6 +50,7 @@ export function parseAction(s: string): Action | null {
   if (s === 'close') return { type: 'close' };
   if (s === 'undo') return { type: 'undo' };
   if (s === 'guest') return { type: 'guest' };
+  if (s === 'day') return { type: 'day' };
   if (s === 'urgent-added') return { type: 'urgent-added' };
   if (s === 'page:next') return { type: 'page', delta: 1 };
   if (s === 'page:prev') return { type: 'page', delta: -1 };
@@ -93,6 +95,8 @@ export interface DeviceState {
   urgentOffer: { key: string; name: string } | null;
   /** Guest mode set by long press; null = follow the visits in the calendar. */
   guest: GuestOverride | null;
+  /** «Tag starten» on the night screen: day mode until this epoch ms (the end of that night's quiet hours). */
+  dayUntil: number | null;
   lastInteraction: number;
   zones: Zone[];
   lastFullRefresh: number;
@@ -113,6 +117,7 @@ export function initialState(now: number): DeviceState {
     einkaufPage: 0,
     urgentOffer: null,
     guest: null,
+    dayUntil: null,
     lastInteraction: now,
     zones: [],
     lastFullRefresh: now,
@@ -169,10 +174,15 @@ export function isQuiet(now: Date, quiet: QuietHours | null): boolean {
   return quiet.start < quiet.end ? minute >= quiet.start && minute < quiet.end : minute >= quiet.start || minute < quiet.end;
 }
 
-export function refreshSeconds(now: Date, base: number, quiet: QuietHours | null): number {
-  if (!quiet || !isQuiet(now, quiet)) return base;
+/** The next end of the quiet hours after `now`. */
+export function quietEnd(now: Date, quiet: QuietHours): Date {
   const end = new Date(now);
   end.setHours(Math.floor(quiet.end / 60), quiet.end % 60, 0, 0);
   if (end <= now) end.setDate(end.getDate() + 1);
-  return Math.round((end.getTime() - now.getTime()) / 1000);
+  return end;
+}
+
+export function refreshSeconds(now: Date, base: number, quiet: QuietHours | null): number {
+  if (!quiet || !isQuiet(now, quiet)) return base;
+  return Math.round((quietEnd(now, quiet).getTime() - now.getTime()) / 1000);
 }

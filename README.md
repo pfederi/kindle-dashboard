@@ -47,7 +47,11 @@ Verspätungen ab 5 Minuten werden schwarz hinterlegt. Optional steht über den A
 
 **Begrüssung mit Gäste-WLAN:** Sind `GUEST_WIFI_SSID` (und `GUEST_WIFI_PASSWORD`) gesetzt, stehen in «Heute» im Gast-Modus statt der Termine «Herzlich willkommen Müllers!» und daneben ein QR-Code fürs Gäste-WLAN – der Name ist alles, was im Termin nach «Besuch» steht (auch «Besuch: …», «Besuch von …»). Netzname und Passwort stehen nicht als Text da; mit dem Handy scannen, verbunden. Wetter, Abfahrten und Einkaufsliste bleiben, «Woche» bleibt geschwärzt, in der Nachtruhe gilt der Nachtbildschirm. Ein Langdruck auf die Begrüssung beendet den Gast-Modus.
 
-**Geburtstage** (`BIRTHDAYS`) grüsst «Heute» den ganzen Tag gross über den Terminen mit «Happy Birthday …!» und einem Kuchen, ebenso der Nachtbildschirm, wenn er diesen Tag zeigt (mit der Standard-Nachtruhe also von 00:00 bis 05:30 am Geburtstag).
+**Geburtstage** (`BIRTHDAYS`) grüsst «Heute» den ganzen Tag gross über den Terminen mit «Happy Birthday …!» und einem Kuchen, ebenso der Nachtbildschirm ab Mitternacht (auch wenn die Nachtruhe schon um 22:00 beginnt).
+
+**Feiertage:** Genauso gross, aber nur an den wichtigsten: «Frohes neues Jahr!» (1. Januar), «Frohe Ostern!» (Ostersonntag und -montag), «Schönen 1. August!» und «Frohe Weihnachten!» (24.–26. Dezember). Fällt ein Geburtstag darauf, geht der Geburtstag vor.
+
+**Nachtbildschirm:** Ein kleiner Sternenhimmel zeigt den Mond in seiner aktuellen Phase, daneben Name und Beleuchtung (z. B. «Zunehmender Mond · 85 %»), lokal berechnet. Antippen beendet die Nachtruhe für diese Nacht («Tag starten»): «Heute» erscheint sofort und aktualisiert sich wieder alle 2 Minuten, bis die Nachtruhe regulär endet; die nächste Nacht beginnt normal. Die Tabs funktionieren auch nachts.
 
 <p>
   <img src="docs/screenshots/gast.png" width="160" alt="Gast-Modus während eines Besuchs">
@@ -208,7 +212,7 @@ Während das Dashboard läuft, ist die Kindle-Oberfläche nur angehalten, nicht 
 
 ## Vorschau im Browser
 
-`https://kindle.example.ch/preview` (Benutzer `admin`, Passwort `PREVIEW_PASSWORD`) listet alle Ansichten – als Webseite und als PNG genau so, wie es der Kindle bekommt. Darunter auch «Heute am Abend» und «Heute in der Nacht», um Abendmodus und Nachtbildschirm tagsüber zu sehen, «Heute/Woche mit Gästen» für den Gast-Modus, und jede Haltestelle. Die Vorschau zeigt echte Daten und verändert den Zustand des Kindle nicht.
+`https://kindle.example.ch/preview` (Benutzer `admin`, Passwort `PREVIEW_PASSWORD`) listet alle Ansichten – als Webseite und als PNG genau so, wie es der Kindle bekommt. Darunter auch «Heute am Abend» und «Heute in der Nacht», um Abendmodus und Nachtbildschirm tagsüber zu sehen, «Nachtbildschirm: Mondphasen und Feiertage» (`/preview/nacht`) mit allen acht Phasen und jedem Feiertag, «Heute/Woche mit Gästen» für den Gast-Modus, und jede Haltestelle. Die Vorschau zeigt echte Daten und verändert den Zustand des Kindle nicht.
 
 Ganz oben steht **Status** (`/preview/status`): letzte und nächste Abfrage des Kindle (mit «überfällig»), der aktuelle Ladestand, eine Akkukurve der letzten 7 Tage mit den Ladezeiten, und für jede Datenquelle den letzten Erfolg und den letzten Fehler. Alles liegt nur im Arbeitsspeicher und beginnt nach einem Deployment neu.
 

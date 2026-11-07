@@ -1,4 +1,6 @@
 import type { DayEntry } from '../sources/calendar.js';
+import type { Holiday } from '../holidays.js';
+import { litPath, type MoonPhase } from '../moon.js';
 import type { MainView, Notice } from '../state.js';
 import { iconSvg, type UiIcon } from './icons.js';
 import type { TaskItem } from './model.js';
@@ -144,5 +146,44 @@ export function EventList({ entries, max }: { entries: DayEntry[]; max: number }
       ))}
       {rest > 0 && !inline && <div class="more">+ {rest} weitere</div>}
     </div>
+  );
+}
+
+/** A holiday greeting in the place and size of the birthday greeting. */
+export function HolidayBanner({ holiday, compact }: { holiday: Holiday; compact?: boolean }) {
+  return (
+    <div class={compact ? 'bday sm' : 'bday'}>
+      <Icon name={holiday.icon} size={compact ? 46 : 80} />
+      <span class="serif">{holiday.text}</span>
+    </div>
+  );
+}
+
+/** Fixed star field (x, y, radius) for the sky; a few brighter ones as small crosses. */
+const STARS: [number, number, number][] = [
+  [22, 30, 2], [58, 140, 1.5], [84, 62, 2.5], [120, 20, 1.5], [138, 160, 2], [30, 96, 1.5], [170, 44, 1.5], [96, 112, 1.5],
+  [16, 170, 2], [62, 18, 1.5], [150, 96, 1.5], [44, 60, 1.5], [112, 178, 1.5], [180, 150, 1.5], [8, 130, 1.5], [72, 186, 1.5],
+];
+const BRIGHT: [number, number][] = [[40, 136], [128, 74], [104, 40]];
+
+/** Night sky with the moon in its current phase: white lit part, the dark part a faint grey disc. */
+export function MoonSky({ moon }: { moon: MoonPhase }) {
+  const w = 300;
+  const h = 200;
+  const cx = 224;
+  const cy = 100;
+  const r = 62;
+  return (
+    <svg class="sky" width={w} height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={moon.name}>
+      <rect width={w} height={h} rx={18} fill="#000" />
+      {STARS.map(([x, y, s]) => (
+        <circle cx={x} cy={y} r={s} fill="#fff" />
+      ))}
+      {BRIGHT.map(([x, y]) => (
+        <path d={`M${x - 7} ${y}H${x + 7}M${x} ${y - 7}V${y + 7}`} stroke="#fff" stroke-width={2.5} stroke-linecap="round" />
+      ))}
+      <circle cx={cx} cy={cy} r={r} fill="#3a3a3a" />
+      {moon.illumination > 0.01 && <path d={litPath(moon.elongation, cx, cy, r)} fill="#fff" />}
+    </svg>
   );
 }

@@ -4,6 +4,8 @@ import type { PreviewOptions, Screen } from './dashboard.js';
 import type { Battery } from './monitor.js';
 import { SCREEN } from './render/screen.js';
 import type { ViewName } from './state.js';
+import { HOLIDAYS, type HolidayId } from './holidays.js';
+import { nachtPreviewHtml } from './views/nacht.js';
 
 export interface DashboardLike {
   screen(): Promise<Screen>;
@@ -29,7 +31,7 @@ function previewIndex(stations: string[]): string {
     ['Wetter', 'wetter', ''],
     ...stations.map((name, i): [string, string, string] => [`Haltestelle ${name}`, 'station', `station=${i}`]),
   ];
-  const status = '<li><a href="/preview/status">Status: Kindle, Akku, Datenquellen</a></li>';
+  const status = '<li><a href="/preview/status">Status: Kindle, Akku, Datenquellen</a></li><li><a href="/preview/nacht">Nachtbildschirm: Mondphasen und Feiertage</a></li>';
   const rows = status + entries.map(([label, view, q]) => {
     const href = `/preview/${view}${q ? `?${q}` : ''}`;
     const png = `/preview/${view}?${q ? `${q}&amp;` : ''}png=1`;
@@ -168,7 +170,14 @@ export function buildApp(opts: {
     return reply.header('Content-Type', 'text/html; charset=utf-8').send(opts.statusHtml());
   });
 
-  app.get<{ Params: { view: string }; Querystring: { png?: string; station?: string; abend?: string; nacht?: string; gast?: string; akku?: string } }>(
+  app.get('/preview/nacht', { onRequest: previewAuth }, async (_req, reply) =>
+    reply.header('Content-Type', 'text/html; charset=utf-8').send(nachtPreviewHtml(Object.entries(HOLIDAYS).map(([id, h]) => ({ id, text: h.text })))),
+  );
+
+  app.get<{
+    Params: { view: string };
+    Querystring: { png?: string; station?: string; abend?: string; nacht?: string; gast?: string; akku?: string; mond?: string; feiertag?: string };
+  }>(
     '/preview/:view',
     { onRequest: previewAuth },
     async (req, reply) => {
@@ -176,12 +185,17 @@ export function buildApp(opts: {
       if (!VIEWS.includes(view)) return reply.code(404).send();
       const station = req.query.station;
       if (station !== undefined && !/^\d{1,2}$/.test(station)) return reply.code(400).send();
+      const { mond, feiertag } = req.query;
+      if (mond !== undefined && !(/^\d{1,3}$/.test(mond) && Number(mond) < 360)) return reply.code(400).send();
+      if (feiertag !== undefined && !Object.hasOwn(HOLIDAYS, feiertag)) return reply.code(400).send();
       const previewOpts: PreviewOptions = {
         station: station === undefined ? undefined : Number(station),
         evening: req.query.abend === '1',
         night: req.query.nacht === '1',
         guest: req.query.gast === '1',
         lowBattery: req.query.akku === '1',
+        moon: mond === undefined ? undefined : Number(mond),
+        holiday: feiertag as HolidayId | undefined,
       };
       if (req.query.png === '1') return reply.header('Content-Type', 'image/png').send(await opts.dashboard.previewPng(view, previewOpts));
       return reply.header('Content-Type', 'text/html; charset=utf-8').send(await opts.dashboard.previewHtml(view, previewOpts));

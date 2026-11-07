@@ -1,5 +1,6 @@
 import type { DayEntry } from '../sources/calendar.js';
 import type { ShoppingData } from '../sources/bring/source.js';
+import type { Holiday } from '../holidays.js';
 import type { Commute } from '../sources/commute.js';
 import type { Departure } from '../sources/transit.js';
 import type { DailyWeather, Weather } from '../sources/weather.js';
@@ -34,6 +35,8 @@ export interface HeuteModel {
   guest?: boolean;
   /** Names of those whose birthday is today; greeted above the events. */
   birthdays?: string[];
+  /** Today's holiday, greeted like a birthday (a birthday comes first). */
+  holiday?: Holiday | null;
   /** Battery level in percent when low (not charging); shown in the header. */
   battery?: number | null;
   /** In guest mode with a guest WLAN: a greeting and the WLAN QR code instead of the events. */

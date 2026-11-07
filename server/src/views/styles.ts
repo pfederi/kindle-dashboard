@@ -93,8 +93,11 @@ html,body{width:${LAYOUT.width}px;height:${LAYOUT.height}px;overflow:hidden;back
 .welcome .hello{flex:1;min-width:0;font-size:60px;font-weight:700;line-height:1.15;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3}
 .welcome .hello.long{font-size:46px}
 .welcome .qr{flex:none;line-height:0}
-.gn{display:flex;align-items:center;justify-content:center;gap:36px;padding:70px 0 60px;flex:none}
-.gn .serif{font-size:110px;font-weight:700;line-height:1}
+.gn{display:flex;align-items:center;justify-content:center;gap:40px;padding:20px 0;flex:none}
+.gn .serif{font-size:100px;font-weight:700;line-height:1}
+.gn .moon{font-size:34px;color:#555;margin-top:14px}
+.gn .sky{flex:none}
+.daystart{flex:none;display:flex;align-items:center;justify-content:center;gap:12px;font-size:32px;color:#555;padding-top:12px}
 .nw{display:flex;align-items:center;gap:30px;margin:6px 0 26px;flex:none}
 .nw-text{font-size:48px;font-weight:700;line-height:1.2}
 .nw-sub{font-size:38px;line-height:1.4;color:#555}

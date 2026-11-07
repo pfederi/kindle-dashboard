@@ -108,12 +108,28 @@ describe('HTTP API', () => {
     expect((await app().app.inject({ method: 'GET', url: '/preview/status', headers: basic('admin', 'pw') })).statusCode).toBe(404);
   });
 
+  it('previews the night with a chosen moon phase or holiday, and lists them on /preview/nacht', async () => {
+    const { app: a, dashboard } = app();
+    await a.inject({ method: 'GET', url: '/preview/heute?nacht=1&mond=180&feiertag=weihnachten', headers: basic('admin', 'pw') });
+    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('heute', expect.objectContaining({ night: true, moon: 180, holiday: 'weihnachten' }));
+    for (const bad of ['mond=360', 'mond=x', 'feiertag=fasnacht', 'feiertag=toString']) {
+      expect((await a.inject({ method: 'GET', url: `/preview/heute?${bad}`, headers: basic('admin', 'pw') })).statusCode).toBe(400);
+    }
+    expect((await a.inject({ method: 'GET', url: '/preview/nacht' })).statusCode).toBe(401);
+    const page = await a.inject({ method: 'GET', url: '/preview/nacht', headers: basic('admin', 'pw') });
+    expect(page.statusCode).toBe(200);
+    expect(page.body).toContain('href="/preview/heute?nacht=1&amp;mond=180"');
+    expect(page.body).toContain('href="/preview/heute?nacht=1&amp;feiertag=ostern"');
+    expect(page.body.match(/<svg class="sky"/g)).toHaveLength(8);
+    expect(page.body).not.toContain('<script');
+  });
+
   it('lists all previews on an index page behind the same password', async () => {
     const { app: a } = app();
     expect((await a.inject({ method: 'GET', url: '/preview' })).statusCode).toBe(401);
     const index = await a.inject({ method: 'GET', url: '/preview', headers: basic('admin', 'pw') });
     expect(index.statusCode).toBe(200);
-    for (const href of ['/preview/heute?abend=1', '/preview/heute?nacht=1', '/preview/heute?gast=1', '/preview/woche?gast=1', '/preview/wetter', '/preview/station?station=2', '/preview/station?station=2&amp;png=1', '/preview/status', '/preview/heute?akku=1']) {
+    for (const href of ['/preview/heute?abend=1', '/preview/heute?nacht=1', '/preview/heute?gast=1', '/preview/woche?gast=1', '/preview/wetter', '/preview/station?station=2', '/preview/station?station=2&amp;png=1', '/preview/status', '/preview/heute?akku=1', '/preview/nacht']) {
       expect(index.body).toContain(`href="${href}"`);
     }
     expect(index.body).toContain('>Haltestelle Hallenstadion</a>');
@@ -122,17 +138,17 @@ describe('HTTP API', () => {
   it('passes the station, the evening simulation and a low battery to the preview', async () => {
     const { app: a, dashboard } = app();
     await a.inject({ method: 'GET', url: '/preview/station?station=2', headers: basic('admin', 'pw') });
-    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('station', { station: 2, evening: false, night: false, guest: false, lowBattery: false });
+    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('station', { station: 2, evening: false, night: false, guest: false, lowBattery: false, moon: undefined, holiday: undefined });
     await a.inject({ method: 'GET', url: '/preview/heute?abend=1&png=1', headers: basic('admin', 'pw') });
-    expect(dashboard.previewPng).toHaveBeenLastCalledWith('heute', { station: undefined, evening: true, night: false, guest: false, lowBattery: false });
+    expect(dashboard.previewPng).toHaveBeenLastCalledWith('heute', { station: undefined, evening: true, night: false, guest: false, lowBattery: false, moon: undefined, holiday: undefined });
     await a.inject({ method: 'GET', url: '/preview/heute?nacht=1', headers: basic('admin', 'pw') });
-    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('heute', { station: undefined, evening: false, night: true, guest: false, lowBattery: false });
+    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('heute', { station: undefined, evening: false, night: true, guest: false, lowBattery: false, moon: undefined, holiday: undefined });
     await a.inject({ method: 'GET', url: '/preview/wetter', headers: basic('admin', 'pw') });
-    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('wetter', { station: undefined, evening: false, night: false, guest: false, lowBattery: false });
+    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('wetter', { station: undefined, evening: false, night: false, guest: false, lowBattery: false, moon: undefined, holiday: undefined });
     await a.inject({ method: 'GET', url: '/preview/woche?gast=1', headers: basic('admin', 'pw') });
-    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('woche', { station: undefined, evening: false, night: false, guest: true, lowBattery: false });
+    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('woche', { station: undefined, evening: false, night: false, guest: true, lowBattery: false, moon: undefined, holiday: undefined });
     await a.inject({ method: 'GET', url: '/preview/heute?akku=1', headers: basic('admin', 'pw') });
-    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('heute', { station: undefined, evening: false, night: false, guest: false, lowBattery: true });
+    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('heute', { station: undefined, evening: false, night: false, guest: false, lowBattery: true, moon: undefined, holiday: undefined });
     expect((await a.inject({ method: 'GET', url: '/preview/station?station=x', headers: basic('admin', 'pw') })).statusCode).toBe(400);
   });
 
