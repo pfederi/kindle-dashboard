@@ -25,6 +25,7 @@ function previewIndex(stations: string[], commutes: string[]): string {
     ['Heute mit Gästen', 'heute', 'gast=1'],
     ['Heute mit fast leerem Akku', 'heute', 'akku=1'],
     ['Heute am Strom (lädt)', 'heute', 'laden=1'],
+    ['Heute bei Nebel, Uetliberg sonnig', 'heute', 'nebel=1'],
     ...(commutes.length > 1 ? [['Heute mit Schule (an jedem Tag)', 'heute', 'schule=1'] as [string, string, string]] : []),
     ['Woche', 'woche', ''],
     ['Woche mit Gästen', 'woche', 'gast=1'],
@@ -184,7 +185,7 @@ export function buildApp(opts: {
 
   app.get<{
     Params: { view: string };
-    Querystring: { png?: string; station?: string; abend?: string; nacht?: string; gast?: string; akku?: string; laden?: string; mond?: string; feiertag?: string; stau?: string; ziel?: string; schule?: string };
+    Querystring: { png?: string; station?: string; abend?: string; nacht?: string; gast?: string; akku?: string; laden?: string; nebel?: string; mond?: string; feiertag?: string; stau?: string; ziel?: string; schule?: string };
   }>(
     '/preview/:view',
     { onRequest: previewAuth },
@@ -210,6 +211,7 @@ export function buildApp(opts: {
         jam: req.query.stau === '1',
         commute: ziel === undefined ? undefined : Number(ziel),
         school: req.query.schule === '1',
+        fog: req.query.nebel === '1',
       };
       if (req.query.png === '1') return reply.header('Content-Type', 'image/png').send(await opts.dashboard.previewPng(view, previewOpts));
       return reply.header('Content-Type', 'text/html; charset=utf-8').send(await opts.dashboard.previewHtml(view, previewOpts));

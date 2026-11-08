@@ -27,6 +27,8 @@ export interface HeuteModel {
   weather: Weather | null;
   /** Zürichsee surface temperature in °C; null or absent when unavailable. */
   lakeTemp?: number | null;
+  /** Fog in the city and sun on the Uetliberg, measured in the last hour. */
+  uetliberg?: boolean;
   /** Today's entries; in the evening only those still to come. */
   events: DayEntry[] | null;
   /** From 19:00: Heute switches to tonight + tomorrow and tomorrow's weather. */

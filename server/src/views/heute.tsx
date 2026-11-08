@@ -88,7 +88,7 @@ function showsRainStrip(m: HeuteModel): boolean {
   return m.weather !== null && weatherView(m.weather, m.now, m.evening ?? false).hours.some((h) => h.probability >= RAIN_STRIP_MIN);
 }
 
-function WeatherBlock({ weather, lakeTemp, now, evening }: { weather: Weather | null; lakeTemp: number | null; now: Date; evening: boolean }) {
+function WeatherBlock({ weather, lakeTemp, uetliberg, now, evening }: { weather: Weather | null; lakeTemp: number | null; uetliberg: boolean; now: Date; evening: boolean }) {
   if (!weather) return <div class="empty">Wetter: keine Daten</div>;
   const v = weatherView(weather, now, evening);
   const info = describeWmo(v.code);
@@ -123,7 +123,13 @@ function WeatherBlock({ weather, lakeTemp, now, evening }: { weather: Weather | 
               {v.rainNow ? 'Regen ab jetzt' : `ab ${v.rain} Uhr Regen`}
             </div>
           )}
-          {v.rain === null && dryUntil !== null && <div>Kein Regen bis {dryUntil} Uhr</div>}
+          {/* The third line: rain first, then the sun above the fog, else how long it stays dry. */}
+          {v.rain === null && uetliberg && (
+            <div>
+              <Icon name="sun" size={44} /> <b>Uetliberg sonnig</b> · über dem Nebel
+            </div>
+          )}
+          {v.rain === null && !uetliberg && dryUntil !== null && <div>Kein Regen bis {dryUntil} Uhr</div>}
         </div>
       </div>
       {showStrip && <RainStrip hours={v.hours} />}
@@ -373,7 +379,7 @@ function Heute({ m }: { m: HeuteModel }) {
           </div>
         </div>
         <div class="rule" />
-        <WeatherBlock weather={m.weather} lakeTemp={m.lakeTemp ?? null} now={m.now} evening={m.evening ?? false} />
+        <WeatherBlock weather={m.weather} lakeTemp={m.lakeTemp ?? null} uetliberg={m.uetliberg ?? false} now={m.now} evening={m.evening ?? false} />
         <div class="rule" />
         <div class={m.evening ? 'agenda evening' : 'agenda'} data-action="nav:woche" data-hold="guest">
           {m.welcome ? (

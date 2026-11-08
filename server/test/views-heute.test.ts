@@ -134,6 +134,17 @@ describe('Heute view', () => {
     expect(out).not.toContain('Schirm mitnehmen');
   });
 
+  it('says the Uetliberg is sunny above the fog in place of "Kein Regen bis …", but not instead of rain', () => {
+    const base = heuteModel();
+    const dry = { ...base.weather!, hourlyRain: base.weather!.hourlyRain.map((h) => ({ ...h, probability: 10 })) };
+    const out = heuteMarkup(heuteModel({ weather: dry, uetliberg: true }));
+    expect(out).toContain('<b>Uetliberg sonnig</b> · über dem Nebel</div>');
+    expect(out).not.toContain('Kein Regen');
+    const wet = heuteMarkup(heuteModel({ uetliberg: true }));
+    expect(wet).toContain('Schirm mitnehmen');
+    expect(wet).not.toContain('Uetliberg');
+  });
+
   it('in the evening shows tomorrow\'s weather with its rain from 6 Uhr', () => {
     const out = heuteMarkup(heuteModel({ now: new Date('2026-11-03T19:30:00+01:00'), evening: true, events: [], tomorrow: [] }));
     expect(out).toContain('<div class="tlabel">morgen</div><div class="temp serif">9°</div>');

@@ -17,6 +17,7 @@ import { BringSource, disabledBring, MAX_TASK_TILES, type ShoppingSource, TASK_S
 import { CalendarSource } from './sources/calendar.js';
 import { TransitSource } from './sources/transit.js';
 import { fetchLakeTemp } from './sources/lake.js';
+import { fetchAboveFog } from './sources/uetliberg.js';
 import { fetchCommute, trip } from './sources/commute.js';
 import { CommuteRouteSource } from './sources/commute-route.js';
 import { fetchWaste } from './sources/waste.js';
@@ -29,6 +30,8 @@ async function main(): Promise<void> {
 
   const weatherCache = new TtlCache(30 * 60_000, () => fetchWeather(fetchFn, config.weather.lat, config.weather.lon), clock, 'weather');
   const lakeCache = new TtlCache(3 * 3_600_000, () => fetchLakeTemp(fetchFn, clock()), clock, 'lake');
+  // MeteoSwiss measures every 10 minutes.
+  const uetlibergCache = new TtlCache(10 * 60_000, () => fetchAboveFog(fetchFn), clock, 'uetliberg');
   const wasteZip = config.wasteZip;
   const wasteCache = wasteZip ? new TtlCache(6 * 3_600_000, () => fetchWaste(fetchFn, wasteZip, startOfWeek(clock())), clock, 'waste') : null;
 
@@ -85,6 +88,7 @@ async function main(): Promise<void> {
     sources: {
       weather: { get: async (force) => (await weatherCache.get(force))?.value ?? null },
       lake: { get: async (force) => (await lakeCache.get(force))?.value ?? null },
+      uetliberg: { get: async (force) => (await uetlibergCache.get(force))?.value ?? null },
       waste: wasteCache ? { pickups: async (force) => (await wasteCache.get(force))?.value ?? null } : undefined,
       calendar: new CalendarSource(config.calendars, fetchFn, clock),
       transit: new TransitSource(config.stations, fetchFn, clock),

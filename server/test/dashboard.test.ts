@@ -4,7 +4,7 @@ import { Dashboard, type Sources } from '../src/dashboard.js';
 import type { Renderer } from '../src/render/renderer.js';
 import type { ShoppingSource } from '../src/sources/bring/source.js';
 import type { Zone } from '../src/zones.js';
-import { heuteModel } from './fixtures/models.js';
+import { dryWeather, heuteModel } from './fixtures/models.js';
 import { testClock } from './helpers.js';
 
 /** Fake renderer: every element with data-action or data-hold becomes a 10x10 zone stacked vertically; png = html bytes. */
@@ -112,6 +112,21 @@ describe('Dashboard', () => {
     await dash.screen();
     expect(renderer.lastHtml).toContain('See 13°');
     expect(src.lake.get).toHaveBeenCalledWith(false);
+  });
+
+  it('says when the Uetliberg is sunny above the fog, from the last hour measured', async () => {
+    const { dash, renderer, src, clock } = setup();
+    const now = clock();
+    const fog = { at: new Date(now.getTime() - 15 * 60_000), city: 0, top: 60, radiation: 300 };
+    src.weather.get = vi.fn(async () => dryWeather());
+    src.uetliberg = { get: vi.fn(async () => fog) };
+    await dash.screen();
+    expect(renderer.lastHtml).toContain('Uetliberg sonnig');
+    expect(src.uetliberg.get).toHaveBeenCalledWith(false);
+    src.uetliberg.get.mockResolvedValue({ ...fog, city: 30 });
+    await dash.screen();
+    expect(renderer.lastHtml).not.toContain('Uetliberg sonnig');
+    expect(await dash.previewHtml('heute', { fog: true })).toContain('Uetliberg sonnig');
   });
 
   it('adds today\'s and tomorrow\'s waste collections to Heute and the week to Woche', async () => {

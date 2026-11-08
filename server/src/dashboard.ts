@@ -14,6 +14,7 @@ import { type Pickup, pickupEntries } from './sources/waste.js';
 import type { Weather } from './sources/weather.js';
 import type { Commute } from './sources/commute.js';
 import { type CommuteDetail, withJam } from './sources/commute-route.js';
+import { type AboveFog, sunAboveFog } from './sources/uetliberg.js';
 import {
   type Action,
   applyKey,
@@ -44,6 +45,8 @@ export interface Sources {
   weather: { get(force?: boolean): Promise<Weather | null> };
   /** Zürichsee surface temperature; optional so a missing source simply hides it. */
   lake?: { get(force?: boolean): Promise<number | null> };
+  /** Sunshine in the last hour on the Uetliberg and in the city; optional so a missing source simply hides it. */
+  uetliberg?: { get(force?: boolean): Promise<AboveFog | null> };
   /** Paper/cardboard collections; optional so a missing source simply hides them. */
   waste?: { pickups(force?: boolean): Promise<Pickup[] | null> };
   calendar: { events(from: Date, to: Date, force?: boolean): Promise<CalendarEvent[] | null> };
@@ -145,6 +148,8 @@ export interface PreviewOptions {
   commute?: number;
   /** Heute with the school, whatever the day. */
   school?: boolean;
+  /** Heute with fog in the city and sun on the Uetliberg, whatever the measurements. */
+  fog?: boolean;
 }
 
 export const PREVIEW_BATTERY = 15;
@@ -163,6 +168,7 @@ interface RenderContext {
   jam?: boolean;
   commute?: number;
   school?: boolean;
+  fog?: boolean;
 }
 /** From this hour Heute shows tonight's remaining events, tomorrow's and tomorrow's weather. */
 export const EVENING_HOUR = 19;
@@ -241,7 +247,7 @@ export class Dashboard {
       now = new Date(now);
       now.setHours(Math.floor(quiet.start / 60), (quiet.start % 60) + 30, 0, 0);
     }
-    return { now, station: opts.station ?? this.state.station, preview: true, guest: opts.guest, lowBattery: opts.lowBattery, charging: opts.charging, moon: opts.moon, holiday: opts.holiday, jam: opts.jam, commute: opts.commute, school: opts.school };
+    return { now, station: opts.station ?? this.state.station, preview: true, guest: opts.guest, lowBattery: opts.lowBattery, charging: opts.charging, moon: opts.moon, holiday: opts.holiday, jam: opts.jam, commute: opts.commute, school: opts.school, fog: opts.fog };
   }
 
   private async apply(action: Action): Promise<boolean> {
@@ -451,7 +457,7 @@ export class Dashboard {
   private async html(view: ViewName, force: boolean, ctx?: RenderContext): Promise<string> {
     const now = ctx?.now ?? this.opts.clock();
     const preview = ctx?.preview ?? false;
-    const { weather, lake, waste, calendar, transit, bring, tasks } = this.opts.sources;
+    const { weather, lake, uetliberg, waste, calendar, transit, bring, tasks } = this.opts.sources;
     switch (view) {
       case 'heute': {
         if (this.night(now, ctx)) return this.nachtHtmlFor(now, force, ctx);
@@ -459,9 +465,10 @@ export class Dashboard {
         const evening = now.getHours() >= EVENING_HOUR;
         const commutes = this.commutesOn(now, ctx?.school);
         const tomorrow = addDays(day, 1);
-        const [w, lakeTemp, events, boards, shopping, pickups, { guest, show, visitors }, taskList, travels] = await Promise.all([
+        const [w, lakeTemp, aboveFog, events, boards, shopping, pickups, { guest, show, visitors }, taskList, travels] = await Promise.all([
           weather.get(force),
           lake ? lake.get(force) : null,
+          uetliberg && !ctx?.fog ? uetliberg.get(force) : null,
           calendar.events(day, addDays(day, evening ? 2 : 1), force),
           transit.boards(force),
           bring.list(force),
@@ -496,6 +503,7 @@ export class Dashboard {
           tasks: taskList === undefined ? undefined : taskList.ok ? urgentFirst([...taskList.items].reverse()).map(({ key, name }) => ({ key, name })) : null,
           weather: w,
           lakeTemp,
+          uetliberg: ctx?.fog || sunAboveFog(aboveFog, now),
           ...agenda,
           boards: boards.map((b) => ({
             name: b.station.name,
