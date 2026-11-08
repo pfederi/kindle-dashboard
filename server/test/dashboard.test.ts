@@ -244,7 +244,7 @@ describe('Dashboard', () => {
     expect(s.refreshSeconds).toBe(5 * 3600);
   });
 
-  it('shows the battery level in the header of Heute and the night screen only when low and not charging', async () => {
+  it('shows the battery level in the header of Heute and the night screen when low, or while charging with a bolt', async () => {
     const quietHours = { start: 0, end: 330 };
     const { dash, renderer, clock } = setup({}, { quietHours });
     await dash.screen();
@@ -261,7 +261,14 @@ describe('Dashboard', () => {
     expect(renderer.lastHtml).toContain('18 %');
     dash.reportBattery({ level: 18, charging: true });
     await dash.screen();
-    expect(renderer.lastHtml).not.toContain('class="batt"');
+    expect(renderer.lastHtml).toMatch(/class="batt charging">.*18 %<\/span>/);
+    clock.set('2026-11-04T07:40:00+01:00');
+    dash.reportBattery({ level: 100, charging: true });
+    await dash.screen();
+    expect(renderer.lastHtml).toMatch(/class="batt charging">.*100 %<\/span>/);
+    dash.reportBattery({ level: 100, charging: false });
+    await dash.screen();
+    expect(renderer.lastHtml).not.toContain('class="batt');
   });
 
   it('adds the walk to the scooter to the ride: door to door, also for the arrival time', async () => {
@@ -359,10 +366,11 @@ describe('Dashboard', () => {
     expect(dash.view).toBe('heute');
   });
 
-  it('previews a low battery', async () => {
+  it('previews a low and a charging battery', async () => {
     const { dash } = setup();
     expect(await dash.previewHtml('heute')).not.toContain('class="batt"');
     expect(await dash.previewHtml('heute', { lowBattery: true })).toContain('15 %');
+    expect(await dash.previewHtml('heute', { charging: true })).toMatch(/class="batt charging">.*62 %/);
   });
 
   describe('«Tag starten» on the night screen', () => {

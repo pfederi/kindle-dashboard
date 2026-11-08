@@ -1,6 +1,7 @@
 import type { DayEntry } from '../sources/calendar.js';
 import type { ShoppingData } from '../sources/bring/source.js';
 import type { Holiday } from '../holidays.js';
+import type { Battery } from '../monitor.js';
 import type { Commute } from '../sources/commute.js';
 import type { CommuteDetail } from '../sources/commute-route.js';
 import type { Departure } from '../sources/transit.js';
@@ -38,8 +39,8 @@ export interface HeuteModel {
   birthdays?: string[];
   /** Today's holiday, greeted like a birthday (a birthday comes first). */
   holiday?: Holiday | null;
-  /** Battery level in percent when low (not charging); shown in the header. */
-  battery?: number | null;
+  /** The battery while charging or when low; shown in the header. */
+  battery?: Battery | null;
   /** In guest mode with a guest WLAN: a greeting and the WLAN QR code instead of the events. */
   welcome?: { guests: string[]; wifi: string };
   /** Scooter travel time per destination above the departures; travel null = no data; absent = not configured. */

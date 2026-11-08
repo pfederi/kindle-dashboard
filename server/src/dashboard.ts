@@ -133,6 +133,8 @@ export interface PreviewOptions {
   guest?: boolean;
   /** The battery as at PREVIEW_BATTERY %, whatever the Kindle reports. */
   lowBattery?: boolean;
+  /** The battery charging at PREVIEW_CHARGING %, whatever the Kindle reports. */
+  charging?: boolean;
   /** The moon at this elongation (0 new, 180 full) instead of tonight's. */
   moon?: number;
   /** This holiday's greeting, whatever the date. */
@@ -146,6 +148,7 @@ export interface PreviewOptions {
 }
 
 export const PREVIEW_BATTERY = 15;
+export const PREVIEW_CHARGING = 62;
 
 interface RenderContext {
   now: Date;
@@ -154,6 +157,7 @@ interface RenderContext {
   preview: boolean;
   guest?: boolean;
   lowBattery?: boolean;
+  charging?: boolean;
   moon?: number;
   holiday?: HolidayId;
   jam?: boolean;
@@ -180,11 +184,12 @@ export class Dashboard {
     this.battery = b;
   }
 
-  /** The level to show: only when low and not charging, else null. */
-  private lowBattery(ctx?: RenderContext): number | null {
-    if (ctx?.lowBattery) return PREVIEW_BATTERY;
+  /** The battery to show: while charging, or when low; else null. */
+  private batteryMark(ctx?: RenderContext): Battery | null {
+    if (ctx?.charging) return { level: PREVIEW_CHARGING, charging: true };
+    if (ctx?.lowBattery) return { level: PREVIEW_BATTERY, charging: false };
     // A preview shows what the Kindle shows.
-    return batteryLow(this.battery) ? this.battery.level : null;
+    return this.battery?.charging || batteryLow(this.battery) ? this.battery : null;
   }
 
   /**
@@ -236,7 +241,7 @@ export class Dashboard {
       now = new Date(now);
       now.setHours(Math.floor(quiet.start / 60), (quiet.start % 60) + 30, 0, 0);
     }
-    return { now, station: opts.station ?? this.state.station, preview: true, guest: opts.guest, lowBattery: opts.lowBattery, moon: opts.moon, holiday: opts.holiday, jam: opts.jam, commute: opts.commute, school: opts.school };
+    return { now, station: opts.station ?? this.state.station, preview: true, guest: opts.guest, lowBattery: opts.lowBattery, charging: opts.charging, moon: opts.moon, holiday: opts.holiday, jam: opts.jam, commute: opts.commute, school: opts.school };
   }
 
   private async apply(action: Action): Promise<boolean> {
@@ -439,7 +444,7 @@ export class Dashboard {
       birthdays: afterMidnight ? birthdaysOn(this.opts.birthdays ?? [], day) : [],
       holiday: afterMidnight || ctx?.holiday ? this.holiday(day, ctx) : null,
       moon: moonPhase(now, ctx?.moon),
-      battery: this.lowBattery(ctx),
+      battery: this.batteryMark(ctx),
     });
   }
 
@@ -484,7 +489,7 @@ export class Dashboard {
             const travel = travels?.[i] ?? null;
             return { label: c.label, icon: c.icon, badge: c.badge ?? '', travel: travel ? { ...travel, minutes: travel.minutes + (c.walkMinutes ?? 0) } : null };
           }),
-          battery: this.lowBattery(ctx),
+          battery: this.batteryMark(ctx),
           birthdays: birthdaysOn(this.opts.birthdays ?? [], now),
           holiday: this.holiday(now, ctx),
           // Bring! lists items in the order they were added: «Dringend» first, then the newest, for the box.

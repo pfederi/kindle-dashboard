@@ -1,5 +1,6 @@
 import type { DayEntry } from '../sources/calendar.js';
 import type { Holiday } from '../holidays.js';
+import type { Battery } from '../monitor.js';
 import { litPath, type MoonPhase } from '../moon.js';
 import type { MainView, Notice } from '../state.js';
 import { iconSvg, type UiIcon } from './icons.js';
@@ -62,12 +63,12 @@ export function GuestMark() {
   );
 }
 
-/** Low battery in the header: an empty battery and the level, in black so it stands out from «Stand». */
-export function BatteryMark({ level }: { level: number }) {
+/** The battery in the header: charging with a bolt, in the grey of «Stand»; low empty and in black, so it stands out. */
+export function BatteryMark({ battery }: { battery: Battery }) {
   return (
-    <span class="batt">
-      <Icon name="battery-low" size={40} />
-      <span>{level} %</span>
+    <span class={battery.charging ? 'batt charging' : 'batt'}>
+      <Icon name={battery.charging ? 'battery-charging' : 'battery-low'} size={40} />
+      <span>{battery.level} %</span>
     </span>
   );
 }

@@ -368,7 +368,7 @@ function Heute({ m }: { m: HeuteModel }) {
         <div class="head">
           <div class="date serif">{formatLongDate(m.now)}</div>
           <div class="meta">
-            {m.battery != null && <BatteryMark level={m.battery} />}
+            {m.battery != null && <BatteryMark battery={m.battery} />}
             Stand {formatTime(m.now)}
           </div>
         </div>

@@ -20,6 +20,7 @@ html,body{width:${LAYOUT.width}px;height:${LAYOUT.height}px;overflow:hidden;back
 /* The 40px icon centred on the digits (cap height of 30px Inter ≈ 22px), so the line keeps its baseline. */
 .batt{color:#000;font-weight:700;margin-right:20px;white-space:nowrap}
 .batt .icon{vertical-align:-9px;margin-right:8px}
+.batt.charging{color:inherit;font-weight:400}
 .view-nacht .batt{margin-right:0}
 .wx{display:flex;align-items:center;gap:36px}
 .wx .temp{font-size:140px;font-weight:700;line-height:1}

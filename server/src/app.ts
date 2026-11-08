@@ -24,6 +24,7 @@ function previewIndex(stations: string[], commutes: string[]): string {
     ['Heute in der Nacht', 'heute', 'nacht=1'],
     ['Heute mit Gästen', 'heute', 'gast=1'],
     ['Heute mit fast leerem Akku', 'heute', 'akku=1'],
+    ['Heute am Strom (lädt)', 'heute', 'laden=1'],
     ...(commutes.length > 1 ? [['Heute mit Schule (an jedem Tag)', 'heute', 'schule=1'] as [string, string, string]] : []),
     ['Woche', 'woche', ''],
     ['Woche mit Gästen', 'woche', 'gast=1'],
@@ -183,7 +184,7 @@ export function buildApp(opts: {
 
   app.get<{
     Params: { view: string };
-    Querystring: { png?: string; station?: string; abend?: string; nacht?: string; gast?: string; akku?: string; mond?: string; feiertag?: string; stau?: string; ziel?: string; schule?: string };
+    Querystring: { png?: string; station?: string; abend?: string; nacht?: string; gast?: string; akku?: string; laden?: string; mond?: string; feiertag?: string; stau?: string; ziel?: string; schule?: string };
   }>(
     '/preview/:view',
     { onRequest: previewAuth },
@@ -203,6 +204,7 @@ export function buildApp(opts: {
         night: req.query.nacht === '1',
         guest: req.query.gast === '1',
         lowBattery: req.query.akku === '1',
+        charging: req.query.laden === '1',
         moon: mond === undefined ? undefined : Number(mond),
         holiday: feiertag as HolidayId | undefined,
         jam: req.query.stau === '1',

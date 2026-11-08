@@ -1,4 +1,5 @@
 import {
+  BatteryCharging,
   BatteryLow,
   Briefcase,
   Cake,
@@ -45,7 +46,7 @@ const Run =
 const Swiss =
   '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-swiss"><rect x="2" y="2" width="20" height="20" rx="3" fill="currentColor" stroke="none"/><path d="M10 6h4v4h4v4h-4v4h-4v-4H6v-4h4z" fill="#fff" stroke="none"/></svg>';
 
-export type UiIcon = IconName | 'umbrella' | 'waves' | 'cart' | 'plus' | 'delete' | 'x' | 'check' | 'refresh' | 'paper' | 'cardboard' | 'sunrise' | 'sunset' | 'lock' | 'cake' | 'circle' | 'run' | 'battery-low' | 'scooter' | 'party' | 'egg' | 'swiss' | 'tree' | 'chevron-left' | 'chevron-right' | 'briefcase' | 'school';
+export type UiIcon = IconName | 'umbrella' | 'waves' | 'cart' | 'plus' | 'delete' | 'x' | 'check' | 'refresh' | 'paper' | 'cardboard' | 'sunrise' | 'sunset' | 'lock' | 'cake' | 'circle' | 'run' | 'battery-low' | 'battery-charging' | 'scooter' | 'party' | 'egg' | 'swiss' | 'tree' | 'chevron-left' | 'chevron-right' | 'briefcase' | 'school';
 
 const SVGS: Record<UiIcon, string> = {
   sun: Sun,
@@ -75,6 +76,7 @@ const SVGS: Record<UiIcon, string> = {
   circle: Circle,
   run: Run,
   'battery-low': BatteryLow,
+  'battery-charging': BatteryCharging,
   scooter: Motorbike,
   party: PartyPopper,
   egg: Egg,

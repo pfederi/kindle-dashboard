@@ -232,10 +232,10 @@ describe('PlaywrightRenderer', () => {
   it('the header keeps the longest date and a low battery on one line', async () => {
     const now = new Date('2026-09-24T07:40:00+02:00'); // «Donnerstag, 24. September»
     const plain = await boxes(heuteHtml(heuteModel({ now })), ['.head']);
-    const low = await boxes(heuteHtml(heuteModel({ now, battery: 18 })), ['.head', '.batt']);
+    const low = await boxes(heuteHtml(heuteModel({ now, battery: { level: 18, charging: false } })), ['.head', '.batt']);
     expect(low['.head']!.bottom - low['.head']!.top).toBe(plain['.head']!.bottom - plain['.head']!.top);
     expect(low['.batt']).toBeDefined();
-    const night = await boxes(nachtHtml({ now, day: now, weather: null, entries: [], battery: 5 }), ['.head', '.batt']);
+    const night = await boxes(nachtHtml({ now, day: now, weather: null, entries: [], battery: { level: 100, charging: true } }), ['.head', '.batt']);
     expect(night['.head']!.bottom - night['.head']!.top).toBe(plain['.head']!.bottom - plain['.head']!.top);
   });
 

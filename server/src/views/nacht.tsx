@@ -4,6 +4,7 @@ import type { DayEntry } from '../sources/calendar.js';
 import { type DailyWeather, firstRainHour, type Weather } from '../sources/weather.js';
 import { describeWmo } from '../sources/wmo.js';
 import type { Holiday } from '../holidays.js';
+import type { Battery } from '../monitor.js';
 import { moonPhase, type MoonPhase } from '../moon.js';
 import { BatteryMark, BirthdayBanner, EventList, GuestMark, HolidayBanner, Icon, MoonSky, Tabs } from './components.js';
 import { page } from './page.js';
@@ -26,8 +27,8 @@ export interface NachtModel {
   holiday?: Holiday | null;
   /** Tonight's moon; without it the plain moon icon. */
   moon?: MoonPhase;
-  /** Battery level in percent when low (not charging); shown in the header. */
-  battery?: number | null;
+  /** The battery while charging or when low; shown in the header. */
+  battery?: Battery | null;
 }
 
 function DayWeather({ weather, day }: { weather: Weather; day: Date }) {
@@ -66,7 +67,7 @@ function Nacht({ m }: { m: NachtModel }) {
           <div class="date serif">{formatLongDate(m.day)}</div>
           {m.battery != null && (
             <div class="meta">
-              <BatteryMark level={m.battery} />
+              <BatteryMark battery={m.battery} />
             </div>
           )}
         </div>
