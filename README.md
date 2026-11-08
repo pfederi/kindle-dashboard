@@ -39,7 +39,7 @@ Ein alter Kindle als Info-Bildschirm für den Eingang: Wetter, Termine, Abfahrte
   <img src="docs/screenshots/nacht.png" width="160" alt="Nachtbildschirm">
   <img src="docs/screenshots/haltestelle.png" width="160" alt="Haltestelle">
   <img src="docs/screenshots/heute-roller.png" width="160" alt="Heute mit Roller zu Arbeit und Schule, Uetliberg sonnig über dem Nebel, Kindle am Strom">
-  <img src="docs/screenshots/arbeitsweg.png" width="160" alt="Arbeitsweg mit Stau">
+  <img src="docs/screenshots/arbeitsweg.png" width="160" alt="Arbeitsweg mit Stau, Reiter Arbeit und Schule">
   <img src="docs/screenshots/einkauf.png" width="160" alt="Einkauf">
   <img src="docs/screenshots/hinzufuegen.png" width="160" alt="Hinzufügen">
 </p>
