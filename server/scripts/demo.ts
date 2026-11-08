@@ -1,6 +1,6 @@
 /** Demo data for the README screenshots and the reel: a household on Tuesday, 3 November 2026. */
 import { DEFAULT_STATIONS, type BirthdayConfig } from '../src/config.js';
-import { Dashboard, type Sources } from '../src/dashboard.js';
+import { type CommuteSource, Dashboard, type Sources } from '../src/dashboard.js';
 import type { Renderer } from '../src/render/renderer.js';
 import { type ShoppingData, type ShoppingSource, TASK_SUGGESTIONS } from '../src/sources/bring/source.js';
 import type { CalendarEvent } from '../src/sources/calendar.js';
@@ -65,6 +65,18 @@ function weather() {
   return { ...w, daily: [...w.daily, ...more.map((d) => ({ sunrise: '07:20', sunset: '16:58', ...d }))] };
 }
 
+/** High fog over the city all day, dry. */
+export function fogWeather() {
+  const w = weather();
+  return { ...w, currentCode: 45, hourlyRain: w.hourlyRain.map((h) => ({ ...h, probability: 0 })), hourly: w.hourly.map((h) => ({ ...h, code: 45, probability: 0, rainMm: 0 })) };
+}
+
+/** By scooter to work, with a jam, and to school, with a neutral abbreviation. */
+export const COMMUTES: CommuteSource[] = [
+  { label: 'Zur Arbeit', icon: 'work', badge: '', get: async () => ({ minutes: 18, delayMinutes: 4 }), route: async () => null },
+  { label: 'Schule', icon: 'school', badge: 'LE', get: async () => ({ minutes: 12, delayMinutes: 0 }), route: async () => null },
+];
+
 /** Departures every `every` minutes from `first` on, with occasional delays. */
 function departures(now: Date, line: string, to: string, inbound: boolean, first: number, every: number, delays: Record<number, number> = {}): Departure[] {
   return Array.from({ length: 10 }, (_, i) => ({
@@ -117,7 +129,7 @@ function taskList(open: string[]): ShoppingSource {
 }
 
 /** Every screen has a task list, as configured at home; only the task screenshot has open tasks. */
-export function dashboard(renderer: Renderer, iso: string, events = EVENTS, birthdays: BirthdayConfig[] = [], tasks: string[] = [], shopping: ShoppingData = SHOPPING): Dashboard {
+export function dashboard(renderer: Renderer, iso: string, events = EVENTS, birthdays: BirthdayConfig[] = [], tasks: string[] = [], shopping: ShoppingData = SHOPPING, extra: Partial<Sources> = {}): Dashboard {
   const now = new Date(iso);
   const w = weather();
   const sources: Sources = {
@@ -136,6 +148,7 @@ export function dashboard(renderer: Renderer, iso: string, events = EVENTS, birt
       frequent: async () => FREQUENT,
       toggleUrgent: async (key) => ({ kind: 'done', key, name: key, urgent: true }),
     },
+    ...extra,
   };
   return new Dashboard({ sources, renderer, clock: () => now, refreshSeconds: 120, quietHours: { start: 0, end: 330 }, viewResetSeconds: 120, birthdays });
 }
