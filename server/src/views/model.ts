@@ -46,7 +46,16 @@ export interface HeuteModel {
   /** In guest mode with a guest WLAN: a greeting and the WLAN QR code instead of the events. */
   welcome?: { guests: string[]; wifi: string };
   /** Scooter travel time per destination above the departures; travel null = no data; absent = not configured. */
-  commutes?: { label: string; icon: CommuteIcon; badge: string; travel: Commute | null }[];
+  commutes?: {
+    label: string;
+    icon: CommuteIcon;
+    badge: string;
+    travel: Commute | null;
+    /** The tab in «Arbeitsweg» a tap opens; absent = the position in this list. */
+    index?: number;
+    /** Today's duty from the roster: the line says when to leave; leave null = no traffic data. */
+    shift?: { label: string; start: Date; leave: Date | null };
+  }[];
   /** Open tasks, newest first; null = list unavailable; absent = no task list configured. */
   tasks?: TaskItem[] | null;
   boards: BoardModel[];

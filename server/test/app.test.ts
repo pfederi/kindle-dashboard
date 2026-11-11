@@ -244,4 +244,17 @@ describe('HTTP API', () => {
       expect(receive).not.toHaveBeenCalled();
     });
   });
+
+  it('previews Heute with a duty, and lists it', async () => {
+    const { app: a, dashboard } = app();
+    const auth = basic('admin', 'pw');
+    expect((await a.inject({ method: 'GET', url: '/preview/heute?dienst=arbeit', headers: auth })).statusCode).toBe(200);
+    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('heute', expect.objectContaining({ shift: 'work' }));
+    await a.inject({ method: 'GET', url: '/preview/heute?dienst=schule', headers: auth });
+    expect(dashboard.previewHtml).toHaveBeenLastCalledWith('heute', expect.objectContaining({ shift: 'school' }));
+    expect((await a.inject({ method: 'GET', url: '/preview/heute?dienst=nacht', headers: auth })).statusCode).toBe(400);
+    const index = (await a.inject({ method: 'GET', url: '/preview', headers: auth })).body;
+    expect(index).toContain('Heute mit Dienst (Arbeit)');
+    expect(index).toContain('Heute mit Dienst (Schule)');
+  });
 });

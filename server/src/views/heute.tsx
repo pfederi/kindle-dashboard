@@ -190,9 +190,28 @@ function Travel({ travel, now, short }: { travel: Commute | null; now: Date; sho
   );
 }
 
+/** «Arbeit 13:30 · los 12:58 · 27 Min. · +4 Stau»: the duty and when to leave for it, door to door. */
+function ShiftTravel({ shift, travel, now }: { shift: { label: string; start: Date; leave: Date | null }; travel: Commute | null; now: Date }) {
+  return (
+    <>
+      <span>{`${shift.label} ${formatTime(shift.start)}`}</span>
+      {travel === null || shift.leave === null ? (
+        <span class="none">keine Verkehrsdaten</span>
+      ) : (
+        <>
+          <b>{now >= shift.leave ? 'los sofort' : `los ${formatTime(shift.leave)}`}</b>
+          <span>{travel.minutes} Min.</span>
+          {travel.delayMinutes >= COMMUTE_DELAY_MIN && <b class="late">+{travel.delayMinutes} Stau</b>}
+        </>
+      )}
+    </>
+  );
+}
+
 /**
  * By scooter: «Zur Arbeit 18 Min. · an 08:02», or with a school as well an icon per destination after a
- * divider. A tap opens the map of the destination tapped.
+ * divider. With a duty from the roster only its destination, with the start and when to leave. A tap
+ * opens the map of the destination tapped.
  */
 function CommuteLine({ commutes, now }: { commutes: NonNullable<HeuteModel['commutes']>; now: Date }) {
   const [only] = commutes;
@@ -200,11 +219,17 @@ function CommuteLine({ commutes, now }: { commutes: NonNullable<HeuteModel['comm
   const badges = [...new Set(commutes.map((c) => c.badge).filter(Boolean))].map((b) => <span class="cal">{b}</span>);
   if (commutes.length === 1 && only) {
     return (
-      <div class="commute" data-action="commute:0">
+      <div class="commute" data-action={`commute:${only.index ?? 0}`}>
         <Icon name="scooter" size={SCOOTER_ICON} />
         {badges}
-        <span>{only.label}</span>
-        <Travel travel={only.travel} now={now} />
+        {only.shift ? (
+          <ShiftTravel shift={only.shift} travel={only.travel} now={now} />
+        ) : (
+          <>
+            <span>{only.label}</span>
+            <Travel travel={only.travel} now={now} />
+          </>
+        )}
       </div>
     );
   }
@@ -214,7 +239,7 @@ function CommuteLine({ commutes, now }: { commutes: NonNullable<HeuteModel['comm
       {badges}
       <span class="sep" />
       {commutes.map((c, i) => (
-        <span class="dest" data-action={`commute:${i}`}>
+        <span class="dest" data-action={`commute:${c.index ?? i}`}>
           <Icon name={COMMUTE_ICONS[c.icon]} size={40} />
           <Travel travel={c.travel} now={now} short />
         </span>

@@ -331,4 +331,20 @@ describe('PlaywrightRenderer', () => {
     const kbBottom = Math.max(...zones.filter((z) => z.action === 'key:space').map((z) => z.y + z.h));
     expect(SCREEN.height - kbBottom).toBeLessThan(25);
   });
+
+  it('the scooter line with a duty fits on one line, with a badge, «los sofort» and a long delay', async () => {
+    const start = new Date('2026-11-03T13:30:00+01:00');
+    const model = heuteModel({
+      boards: fullBoards(),
+      commutes: [{ label: 'Schule', icon: 'school', badge: 'LE', travel: { minutes: 58, delayMinutes: 12 }, shift: { label: 'Schule', start, leave: new Date('2026-11-03T07:00:00+01:00') } }],
+    });
+    const page = await browser.newPage({ viewport: { ...LAYOUT } });
+    await page.setContent(heuteHtml(model));
+    const fits = await page.evaluate(() => {
+      const el = document.querySelector('.commute')!;
+      return el.scrollWidth <= el.clientWidth;
+    });
+    await page.close();
+    expect(fits).toBe(true);
+  });
 });

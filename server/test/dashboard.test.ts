@@ -1076,4 +1076,68 @@ describe('Dashboard', () => {
       expect(renderer.lastHtml).toContain('A20 abgehakt');
     });
   });
+
+  describe('with a duty roster', () => {
+    const shift = (kind: 'work' | 'school', hhmm: string) => {
+      const start = new Date(`2026-11-03T${hhmm}:00+01:00`);
+      return { kind, start, end: new Date(start.getTime() + 8 * 3_600_000) };
+    };
+    function withRoster(today: ReturnType<typeof shift> | 'free' | null, at = '2026-11-03T07:40:00+01:00') {
+      const s = setup({}, { at });
+      const planned = vi.fn(async () => ({ minutes: 22, delayMinutes: 0 }));
+      s.src.commutes = [
+        { label: 'Zur Arbeit', icon: 'work', walkMinutes: 5, get: vi.fn(async () => ({ minutes: 18, delayMinutes: 4 })), at: planned, route: vi.fn(async () => null) },
+        { label: 'Schule', icon: 'school', badge: 'LE', walkMinutes: 5, get: vi.fn(async () => ({ minutes: 12, delayMinutes: 0 })), at: planned, route: vi.fn(async () => null) },
+      ];
+      s.src.roster = { today: () => today, buffers: { work: 5, school: 10 } };
+      return { ...s, planned };
+    }
+
+    it('long before: the usual traffic at the leave time; only the destination of the duty', async () => {
+      const { dash, renderer, planned } = withRoster(shift('work', '13:30'));
+      await dash.screen();
+      // live 18 + 5 walk → leave 13:02 → ask HERE about 13:00 → 22 + 5 → leave 12:58
+      expect(planned).toHaveBeenCalledWith(new Date('2026-11-03T13:00:00+01:00'), false);
+      expect(renderer.lastHtml).toContain('<div class="commute" data-action="commute:0">');
+      expect(renderer.lastHtml).toContain('<span>Arbeit 13:30</span><b>los 12:58</b><span>27 Min.</span></div>');
+      expect(renderer.lastHtml).not.toContain('data-action="commute:1"');
+    });
+
+    it('from 30 minutes before leaving: live traffic; then «los sofort»; gone from the start', async () => {
+      const { dash, renderer, planned, clock } = withRoster(shift('work', '13:30'), '2026-11-03T12:40:00+01:00');
+      await dash.screen();
+      expect(planned).not.toHaveBeenCalled();
+      expect(renderer.lastHtml).toContain('<span>Arbeit 13:30</span><b>los 13:02</b><span>23 Min.</span><b class="late">+4 Stau</b>');
+      clock.set('2026-11-03T13:05:00+01:00');
+      await dash.screen();
+      expect(renderer.lastHtml).toContain('<b>los sofort</b>');
+      clock.set('2026-11-03T13:30:00+01:00');
+      await dash.screen();
+      expect(renderer.lastHtml).not.toContain('class="commute"');
+    });
+
+    it('school: its destination, its badge and buffer', async () => {
+      const { dash, renderer } = withRoster(shift('school', '07:30'), '2026-11-03T06:00:00+01:00');
+      await dash.screen();
+      // live 12 + 5 → leave 07:03 → ask about 07:00 → 22 + 5 → 07:30 − 10 − 27 = 06:53
+      expect(renderer.lastHtml).toContain('<div class="commute" data-action="commute:1">');
+      expect(renderer.lastHtml).toMatch(/<span class="cal">LE<\/span><span>Schule 07:30<\/span><b>los 06:53<\/b>/);
+    });
+
+    it('no line on a day off; as before without a plan for the month', async () => {
+      const free = withRoster('free');
+      await free.dash.screen();
+      expect(free.renderer.lastHtml).not.toContain('class="commute"');
+      const none = withRoster(null);
+      await none.dash.screen();
+      expect(none.renderer.lastHtml).toContain('<span class="dest" data-action="commute:1">');
+    });
+
+    it('previews a duty in one to two hours without a roster', async () => {
+      const { dash, src } = withRoster(null);
+      delete src.roster;
+      expect(await dash.previewHtml('heute', { shift: 'work' })).toContain('<span>Arbeit 09:00</span>');
+      expect(await dash.previewHtml('heute', { shift: 'school' })).toContain('<span>Schule 09:00</span>');
+    });
+  });
 });

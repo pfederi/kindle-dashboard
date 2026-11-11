@@ -14,6 +14,7 @@ import { type Pickup, pickupEntries } from './sources/waste.js';
 import type { Weather } from './sources/weather.js';
 import type { Commute } from './sources/commute.js';
 import { type CommuteDetail, withJam } from './sources/commute-route.js';
+import { DEFAULT_BUFFERS, LIVE_BEFORE_MIN, leaveBy, plannedDeparture, SHIFT_LABEL, type Shift, type ShiftBuffers, type ShiftKind } from './roster/shift.js';
 import { type AboveFog, sunAboveFog } from './sources/uetliberg.js';
 import {
   type Action,
@@ -56,6 +57,8 @@ export interface Sources {
   tasks?: ShoppingSource;
   /** Scooter travel time with traffic per destination (work, school); optional so a missing configuration hides the line. */
   commutes?: CommuteSource[];
+  /** Today's duty from the uploaded roster; optional, absent = no roster. */
+  roster?: RosterSource;
 }
 
 export interface CommuteSource {
@@ -67,8 +70,16 @@ export interface CommuteSource {
   days?: number[];
   walkMinutes?: number;
   get(force?: boolean): Promise<Commute | null>;
+  /** The ride at a planned departure with the traffic usual then; absent = live only. */
+  at?(departure: Date, force?: boolean): Promise<Commute | null>;
   /** Route, alternative and base map for «Arbeitsweg», opened by a tap on the line. */
   route(force?: boolean): Promise<CommuteDetail | null>;
+}
+
+export interface RosterSource {
+  /** Today's duty; 'free' on a day off; null when this month has no plan (the line works as without roster). */
+  today(now: Date): Shift | 'free' | null;
+  buffers: ShiftBuffers;
 }
 
 export interface Screen {
@@ -150,6 +161,8 @@ export interface PreviewOptions {
   school?: boolean;
   /** Heute with fog in the city and sun on the Uetliberg, whatever the measurements. */
   fog?: boolean;
+  /** Heute with a duty starting in one to two hours, whatever the roster. */
+  shift?: ShiftKind;
 }
 
 export const PREVIEW_BATTERY = 15;
@@ -169,6 +182,7 @@ interface RenderContext {
   commute?: number;
   school?: boolean;
   fog?: boolean;
+  shift?: ShiftKind;
 }
 /** From this hour Heute shows tonight's remaining events, tomorrow's and tomorrow's weather. */
 export const EVENING_HOUR = 19;
@@ -247,7 +261,7 @@ export class Dashboard {
       now = new Date(now);
       now.setHours(Math.floor(quiet.start / 60), (quiet.start % 60) + 30, 0, 0);
     }
-    return { now, station: opts.station ?? this.state.station, preview: true, guest: opts.guest, lowBattery: opts.lowBattery, charging: opts.charging, moon: opts.moon, holiday: opts.holiday, jam: opts.jam, commute: opts.commute, school: opts.school, fog: opts.fog };
+    return { now, station: opts.station ?? this.state.station, preview: true, guest: opts.guest, lowBattery: opts.lowBattery, charging: opts.charging, moon: opts.moon, holiday: opts.holiday, jam: opts.jam, commute: opts.commute, school: opts.school, fog: opts.fog, shift: opts.shift };
   }
 
   private async apply(action: Action): Promise<boolean> {
@@ -339,10 +353,41 @@ export class Dashboard {
     return { guest, show: guest ? hideEntries : (e) => e, visitors: visitorNames(running, now) };
   }
 
-  /** The destinations in Heute: school only on school days (`all`: whatever the day). */
-  private commutesOn(now: Date, all = false): CommuteSource[] | undefined {
-    const list = all ? this.opts.sources.commutes : this.opts.sources.commutes?.filter((c) => !c.days || c.days.includes(now.getDay()));
-    return list && list.length > 0 ? list : undefined;
+  /** The destinations in Heute with their tab in «Arbeitsweg»: school only on school days (`all`: whatever the day). */
+  private commutesOn(now: Date, all = false): { source: CommuteSource; index: number }[] | undefined {
+    const list = (this.opts.sources.commutes ?? []).map((source, index) => ({ source, index })).filter(({ source }) => all || !source.days || source.days.includes(now.getDay()));
+    return list.length > 0 ? list : undefined;
+  }
+
+  /** With a roster: only the destination of today's duty, until it starts; none on a day off. */
+  private commutesForShift(plan: Shift | 'free', now: Date): { source: CommuteSource; index: number }[] | undefined {
+    if (plan === 'free' || now >= plan.start) return undefined;
+    const list = this.opts.sources.commutes ?? [];
+    const index = list.findIndex((c) => c.icon === plan.kind);
+    return index < 0 ? undefined : [{ source: list[index]!, index }];
+  }
+
+  /** Today's duty: from the roster, or one made up for a preview. */
+  private plan(now: Date, ctx?: RenderContext): Shift | 'free' | null {
+    if (ctx?.shift) {
+      const start = new Date((Math.floor(now.getTime() / 3_600_000) + 2) * 3_600_000);
+      return { kind: ctx.shift, start, end: new Date(start.getTime() + 8 * 3_600_000) };
+    }
+    return this.opts.sources.roster?.today(now) ?? null;
+  }
+
+  /**
+   * The ride to a duty and when to leave, door to door: with the traffic usual at the leave time, and
+   * from LIVE_BEFORE_MIN before leaving with live traffic.
+   */
+  private async shiftRide(c: CommuteSource, live: Commute | null, shift: Shift, now: Date, force: boolean): Promise<{ travel: Commute | null; leave: Date | null }> {
+    if (!live) return { travel: null, leave: null };
+    const walk = c.walkMinutes ?? 0;
+    const buffer = (this.opts.sources.roster?.buffers ?? DEFAULT_BUFFERS)[shift.kind];
+    const guess = leaveBy(shift.start, buffer, live.minutes + walk);
+    const early = now.getTime() < guess.getTime() - LIVE_BEFORE_MIN * 60_000;
+    const ride = (early && c.at ? await c.at(plannedDeparture(guess), force) : null) ?? live;
+    return { travel: { ...ride, minutes: ride.minutes + walk }, leave: leaveBy(shift.start, buffer, ride.minutes + walk) };
   }
 
   /** The list «Hinzufügen» writes to. */
@@ -463,7 +508,9 @@ export class Dashboard {
         if (this.night(now, ctx)) return this.nachtHtmlFor(now, force, ctx);
         const day = startOfDay(now);
         const evening = now.getHours() >= EVENING_HOUR;
-        const commutes = this.commutesOn(now, ctx?.school);
+        const plan = this.plan(now, ctx);
+        const shift = plan !== null && plan !== 'free' ? plan : null;
+        const commutes = plan === null ? this.commutesOn(now, ctx?.school) : this.commutesForShift(plan, now);
         const tomorrow = addDays(day, 1);
         const [w, lakeTemp, aboveFog, events, boards, shopping, pickups, { guest, show, visitors }, taskList, travels] = await Promise.all([
           weather.get(force),
@@ -475,8 +522,9 @@ export class Dashboard {
           waste ? waste.pickups(force) : null,
           this.guestFilter(now, ctx),
           tasks ? tasks.list(force) : undefined,
-          commutes ? Promise.all(commutes.map((c) => c.get(force))) : undefined,
+          commutes ? Promise.all(commutes.map(({ source }) => source.get(force))) : undefined,
         ]);
+        const rides = commutes && shift ? await Promise.all(commutes.map(({ source }, i) => this.shiftRide(source, travels?.[i] ?? null, shift, now, force))) : undefined;
         // Bundles must be out by 7:00, so tomorrow's collection shows the day before.
         const collections = pickups ? [...pickupEntries(pickups, day), ...pickupEntries(pickups, tomorrow, 'morgen')] : [];
         const agenda = evening
@@ -492,9 +540,12 @@ export class Dashboard {
           guest,
           welcome: guest && wifi ? { guests: visitors, wifi: wifiPayload(wifi) } : undefined,
           // Door to door: the walk to the scooter comes first.
-          commutes: commutes?.map((c, i) => {
+          commutes: commutes?.map(({ source: c, index }, i) => {
+            const base = { label: c.label, icon: c.icon, badge: c.badge ?? '', index };
+            const ride = rides?.[i];
+            if (ride && shift) return { ...base, travel: ride.travel, shift: { label: SHIFT_LABEL[shift.kind], start: shift.start, leave: ride.leave } };
             const travel = travels?.[i] ?? null;
-            return { label: c.label, icon: c.icon, badge: c.badge ?? '', travel: travel ? { ...travel, minutes: travel.minutes + (c.walkMinutes ?? 0) } : null };
+            return { ...base, travel: travel ? { ...travel, minutes: travel.minutes + (c.walkMinutes ?? 0) } : null };
           }),
           battery: this.batteryMark(ctx),
           birthdays: birthdaysOn(this.opts.birthdays ?? [], now),

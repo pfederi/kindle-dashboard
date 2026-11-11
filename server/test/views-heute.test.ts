@@ -374,4 +374,18 @@ describe('Heute view', () => {
     expect(html).not.toContain('Zur Arbeit');
     expect(html).not.toMatch(/class="commute".*an 07:58/);
   });
+
+  it('with a duty: start, when to leave, the ride and a short delay; «los sofort» once it is time; the tab of its destination', () => {
+    const start = new Date('2026-11-03T13:30:00+01:00');
+    const line = (leave: string | null) =>
+      heuteMarkup(
+        heuteModel({
+          commutes: [{ label: 'Schule', icon: 'school', badge: 'LE', index: 1, travel: { minutes: 27, delayMinutes: 5 }, shift: { label: 'Arbeit', start, leave: leave ? new Date(`2026-11-03T${leave}:00+01:00`) : null } }],
+        }),
+      );
+    expect(line('12:58')).toMatch(/<div class="commute" data-action="commute:1">.*<span class="cal">LE<\/span><span>Arbeit 13:30<\/span><b>los 12:58<\/b><span>27 Min\.<\/span><b class="late">\+5 Stau<\/b><\/div>/);
+    expect(line('12:58')).not.toContain('<span>Schule</span>');
+    expect(line('07:30')).toContain('<b>los sofort</b>'); // NOW is 07:40
+    expect(line(null)).toMatch(/<span>Arbeit 13:30<\/span><span class="none">keine Verkehrsdaten<\/span><\/div>/);
+  });
 });

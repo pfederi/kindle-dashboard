@@ -27,6 +27,8 @@ function previewIndex(stations: string[], commutes: string[]): string {
     ['Heute am Strom (lädt)', 'heute', 'laden=1'],
     ['Heute bei Nebel, Uetliberg sonnig', 'heute', 'nebel=1'],
     ...(commutes.length > 1 ? [['Heute mit Schule (an jedem Tag)', 'heute', 'schule=1'] as [string, string, string]] : []),
+    ...(commutes.length > 0 ? [['Heute mit Dienst (Arbeit)', 'heute', 'dienst=arbeit'] as [string, string, string]] : []),
+    ...(commutes.length > 1 ? [['Heute mit Dienst (Schule)', 'heute', 'dienst=schule'] as [string, string, string]] : []),
     ['Woche', 'woche', ''],
     ['Woche mit Gästen', 'woche', 'gast=1'],
     ['Einkauf', 'einkauf', ''],
@@ -203,7 +205,7 @@ export function buildApp(opts: {
 
   app.get<{
     Params: { view: string };
-    Querystring: { png?: string; station?: string; abend?: string; nacht?: string; gast?: string; akku?: string; laden?: string; nebel?: string; mond?: string; feiertag?: string; stau?: string; ziel?: string; schule?: string };
+    Querystring: { png?: string; station?: string; abend?: string; nacht?: string; gast?: string; akku?: string; laden?: string; nebel?: string; mond?: string; feiertag?: string; stau?: string; ziel?: string; schule?: string; dienst?: string };
   }>(
     '/preview/:view',
     { onRequest: previewAuth },
@@ -217,6 +219,8 @@ export function buildApp(opts: {
       const { mond, feiertag } = req.query;
       if (mond !== undefined && !(/^\d{1,3}$/.test(mond) && Number(mond) < 360)) return reply.code(400).send();
       if (feiertag !== undefined && !Object.hasOwn(HOLIDAYS, feiertag)) return reply.code(400).send();
+      const dienst = req.query.dienst;
+      if (dienst !== undefined && dienst !== 'arbeit' && dienst !== 'schule') return reply.code(400).send();
       const previewOpts: PreviewOptions = {
         station: station === undefined ? undefined : Number(station),
         evening: req.query.abend === '1',
@@ -230,6 +234,7 @@ export function buildApp(opts: {
         commute: ziel === undefined ? undefined : Number(ziel),
         school: req.query.schule === '1',
         fog: req.query.nebel === '1',
+        shift: dienst === 'arbeit' ? 'work' : dienst === 'schule' ? 'school' : undefined,
       };
       if (req.query.png === '1') return reply.header('Content-Type', 'image/png').send(await opts.dashboard.previewPng(view, previewOpts));
       return reply.header('Content-Type', 'text/html; charset=utf-8').send(await opts.dashboard.previewHtml(view, previewOpts));

@@ -24,17 +24,18 @@ export function trip(c: CommuteConfig, d: CommuteDestination): Trip {
 
 /**
  * HERE Routing v8 in scooter mode: roads open to motorcycles, motorways only if allowed (125 cm³).
- * Without departureTime HERE routes for now, with live traffic.
+ * Without departureTime HERE routes for now, with live traffic; with it, with the traffic usual then.
  */
-export function commuteUrl(c: Trip): string {
+export function commuteUrl(c: Trip, departure?: Date): string {
   const q = new URLSearchParams({
     transportMode: 'scooter',
     origin: `${c.from.lat},${c.from.lon}`,
     destination: `${c.to.lat},${c.to.lon}`,
     return: 'summary,typicalDuration',
     'scooter[allowHighway]': String(c.highway),
-    apiKey: c.apiKey,
   });
+  if (departure) q.set('departureTime', departure.toISOString().replace(/\.\d{3}Z$/, 'Z'));
+  q.set('apiKey', c.apiKey);
   return `https://router.hereapi.com/v8/routes?${q}`;
 }
 
@@ -66,8 +67,8 @@ export function sumSections(sections: { summary?: Summary }[]): Commute {
   return { minutes: Math.max(1, Math.round(duration / 60)), delayMinutes: Math.round((duration - usual) / 60) };
 }
 
-export async function fetchCommute(fetchFn: FetchFn, c: Trip): Promise<Commute> {
-  const res = await fetchFn(commuteUrl(c), { signal: AbortSignal.timeout(TIMEOUT_MS) });
+export async function fetchCommute(fetchFn: FetchFn, c: Trip, departure?: Date): Promise<Commute> {
+  const res = await fetchFn(commuteUrl(c, departure), { signal: AbortSignal.timeout(TIMEOUT_MS) });
   // Never the URL in errors: it carries the API key.
   if (!res.ok) throw new Error(`here HTTP ${res.status}`);
   return parseCommute(await res.json());

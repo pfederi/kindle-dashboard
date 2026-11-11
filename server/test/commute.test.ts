@@ -34,4 +34,13 @@ describe('commute (HERE scooter routing)', () => {
     const ok = fakeFetch(() => jsonResponse(route({ duration: 600, typicalDuration: 600 })));
     expect(await fetchCommute(ok, config)).toEqual({ minutes: 10, delayMinutes: 0 });
   });
+
+  it('asks for the usual traffic at a planned departure', async () => {
+    const at = new Date('2026-11-12T12:55:00+01:00');
+    expect(new URL(commuteUrl(config, at)).searchParams.get('departureTime')).toBe('2026-11-12T11:55:00Z');
+    expect(new URL(commuteUrl(config)).searchParams.has('departureTime')).toBe(false);
+    const f = fakeFetch(() => jsonResponse(route({ duration: 1320, typicalDuration: 1320 })));
+    expect(await fetchCommute(f, config, at)).toEqual({ minutes: 22, delayMinutes: 0 });
+    expect(f.calls[0]!.url).toContain('departureTime=2026-11-12T11%3A55%3A00Z');
+  });
 });
