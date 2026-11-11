@@ -95,8 +95,8 @@ export interface Config {
   calendars: CalendarConfig[];
   weather: { lat: number; lon: number };
   stations: StationConfig[];
-  /** opentransportdata.swiss API key for departures via OJP; null falls back to the transport.opendata.ch wrapper. */
-  opentransportdataKey: string | null;
+  /** opentransportdata.swiss API key for the departures (OJP 2.0). */
+  opentransportdataKey: string;
   birthdays: BirthdayConfig[];
   bring: BringConfig | null;
   /** Zurich postcode for the paper/cardboard collection dates; '' turns them off. */
@@ -333,7 +333,7 @@ function quiet(raw: string | undefined): QuietHours | null {
 }
 
 export function loadConfig(env: Env): Config {
-  const missing = ['DEVICE_TOKEN', 'PREVIEW_PASSWORD'].filter((k) => !env[k]);
+  const missing = ['DEVICE_TOKEN', 'PREVIEW_PASSWORD', 'OPENTRANSPORTDATA_KEY'].filter((k) => !env[k]?.trim());
   if (missing.length > 0) throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
 
   let bring: BringConfig | null = null;
@@ -355,7 +355,7 @@ export function loadConfig(env: Env): Config {
     calendars: calendars(json<unknown>(env, 'CALENDARS', [])),
     weather: { lat: float(env, 'WEATHER_LAT', 47.411), lon: float(env, 'WEATHER_LON', 8.544) },
     stations: stations(json<unknown>(env, 'STATIONS', DEFAULT_STATIONS)),
-    opentransportdataKey: env.OPENTRANSPORTDATA_KEY?.trim() || null,
+    opentransportdataKey: (env.OPENTRANSPORTDATA_KEY as string).trim(),
     birthdays: birthdays(json<unknown>(env, 'BIRTHDAYS', DEFAULT_BIRTHDAYS)),
     bring,
     wasteZip: wasteZip(env.WASTE_ZIP),

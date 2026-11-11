@@ -103,7 +103,7 @@ Der Server läuft als Docker-Container, z. B. in [Coolify](https://coolify.io).
 | `DEVICE_TOKEN` | ja | Schlüssel des Kindle. Erzeugen mit `openssl rand -base64 32 \| tr '+/' '-_' \| tr -d '='` |
 | `PREVIEW_PASSWORD` | ja | Passwort für die Browser-Vorschau (Benutzer `admin`) |
 | `CALENDARS` | | Kalender als JSON: `[{"label":"PF","url":"<geheime iCal-Adresse>"},{"label":"FAM","url":"…"}]`. Das Kürzel erscheint vor jedem Termin. |
-| `OPENTRANSPORTDATA_KEY` | | API-Key von [opentransportdata.swiss](https://opentransportdata.swiss/de/dev-dashboard/) (OJP 2.0) für die Abfahrten. Ohne Key greift der Server auf den Community-Dienst transport.opendata.ch zurück. |
+| `OPENTRANSPORTDATA_KEY` | ja | API-Key von [opentransportdata.swiss](https://opentransportdata.swiss/de/dev-dashboard/) (OJP 2.0) für die Abfahrten |
 | `BRING_EMAIL`, `BRING_PASSWORD` | | Bring!-Konto; ohne diese Angaben bleibt die Einkaufsliste leer |
 | `BRING_LIST` | | Name der Liste, Standard `Zuhause` |
 | `BRING_LOCALE` | | Sprache der Artikelnamen, Standard `de-CH` |
@@ -136,7 +136,7 @@ Der Server läuft als Docker-Container, z. B. in [Coolify](https://coolify.io).
 
 **Geheime iCal-Adresse (Google):** Kalender-Einstellungen → Kalender auswählen → «Kalender integrieren» → «Geheime Adresse im iCal-Format». Diese Adresse gibt vollen Lesezugriff – nur in Coolify eintragen, nirgends sonst.
 
-**Haltestellen:** `id` ist die Haltestellennummer (DIDOK, z. B. aus [transport.opendata.ch](https://transport.opendata.ch)), `via` eine Haltestelle, die nur Fahrten Richtung Stadt passieren, `lines` die angezeigten Linien, `walk` der Fussweg von der Haustür in Minuten:
+**Haltestellen:** `id` ist die Haltestellennummer (DIDOK-Nummer der Haltestelle, z. B. `8591382`), `via` eine Haltestelle, die nur Fahrten Richtung Stadt passieren, `lines` die angezeigten Linien, `walk` der Fussweg von der Haustür in Minuten:
 
 ```json
 [
@@ -304,7 +304,7 @@ Go 1.23, gebaut und getestet in Docker (`make test`, `make build`). Ein statisch
 | Wetter | [Open-Meteo](https://open-meteo.com) (MeteoSchweiz ICON-CH2, sonst Best Match) |
 | Zürichsee-Temperatur | [Alplakes](https://www.alplakes.eawag.ch) (Eawag) |
 | Uetliberg über dem Nebel | Quelle: MeteoSchweiz, [Messwerte SwissMetNet](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations) (Uetliberg und Zürich-Fluntern, alle 10 Minuten) |
-| Abfahrten | [opentransportdata.swiss](https://opentransportdata.swiss) (OJP 2.0, mit Key), sonst [transport.opendata.ch](https://transport.opendata.ch) |
+| Abfahrten | [opentransportdata.swiss](https://opentransportdata.swiss) (OJP 2.0, mit Key) |
 | Papier- und Kartonsammlung | [OpenERZ](https://openerz.metaodi.ch) (Entsorgung + Recycling Zürich) |
 | Einkaufsliste | Bring! (inoffizielle API der Apps, wie [bring-api](https://github.com/miaucl/bring-api)) |
 | Termine | iCal-Adressen der Kalender |

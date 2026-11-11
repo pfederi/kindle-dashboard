@@ -97,7 +97,7 @@ flowchart LR
   server --> alplakes[Alplakes<br/>Seetemperatur]
   server --> smn[MeteoSchweiz<br/>Messwerte Uetliberg]
   server --> ics[Kalender<br/>iCal]
-  server --> transport[transport.opendata.ch<br/>Abfahrten]
+  server --> transport[opentransportdata.swiss<br/>Abfahrten]
   server --> erz[OpenERZ<br/>Entsorgung]
   server <--> bring[Bring!<br/>Einkaufsliste, Aufgaben]
   server --> here[HERE<br/>Fahrzeit, Karte]
@@ -119,7 +119,7 @@ flowchart LR
 | HERE Map Image | Hintergrundkarte für «Arbeitsweg» (Stil `lite.day`, Schrift doppelt gross) |
 | Kalender | geheime iCal-Adressen, ein Kürzel pro Kalender |
 | iPhone-Kurzbefehl | schickt den Dienstplan (PDF aus WhatsApp, Teilen-Menü) an `POST /dienstplan`; bekommt eine lesbare Antwort zurück |
-| opentransportdata.swiss (OJP 2.0, mit `OPENTRANSPORTDATA_KEY`), sonst transport.opendata.ch | Abfahrtstafeln (Linie, Zeit, Verspätung, Endhaltestelle, Zwischenhalte) |
+| opentransportdata.swiss (OJP 2.0, `OPENTRANSPORTDATA_KEY`) | Abfahrtstafeln (Linie, Zeit, Verspätung, Endhaltestelle, Zwischenhalte) |
 | OpenERZ | Sammeltermine Papier und Karton für eine Postleitzahl |
 | Bring! | Liste lesen, Artikel hinzufügen, abhaken, zurücklegen; Artikelkatalog |
 

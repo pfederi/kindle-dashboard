@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { OJP_URL, ojpStopEventRequest, parseStopEvents } from '../src/sources/ojp.js';
 import { TransitSource } from '../src/sources/transit.js';
-import { fakeFetch, jsonResponse, testClock, textResponse } from './helpers.js';
+import { fakeFetch, testClock, textResponse } from './helpers.js';
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
 const tram = fixture('ojp-tram.xml');
@@ -61,7 +61,7 @@ describe('ojp', () => {
   });
 });
 
-describe('TransitSource with an opentransportdata key', () => {
+describe('TransitSource', () => {
   const clock = testClock('2026-11-11T18:00:00Z');
 
   it('posts an OJP request with the bearer token and returns the parsed board', async () => {
@@ -82,9 +82,12 @@ describe('TransitSource with an opentransportdata key', () => {
     expect(board!.departures).toBeNull();
   });
 
-  it('keeps using transport.opendata.ch when no key is set', async () => {
-    const fetchFn = fakeFetch(() => jsonResponse({ stationboard: [] }));
-    await new TransitSource([sternen], fetchFn, clock).boards();
-    expect(fetchFn.calls[0]!.url).toContain('transport.opendata.ch');
+  it('fetches every station, isolating failures', async () => {
+    const fetchFn = fakeFetch((c) => (c.body?.includes('8591382') ? textResponse(tram) : textResponse('err', 500)));
+    const boards = await new TransitSource([sternen, oerlikon], fetchFn, clock, 'secret-key').boards();
+    expect(boards.map((b) => [b.station.name, b.departures?.length ?? null, b.fetchedAt?.toISOString() ?? null])).toEqual([
+      ['Sternen', 3, '2026-11-11T18:00:00.000Z'],
+      ['Oerlikon', null, null],
+    ]);
   });
 });

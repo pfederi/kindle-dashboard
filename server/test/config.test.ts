@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadConfig, weekdays } from '../src/config.js';
 
-const base = { DEVICE_TOKEN: 'tok', PREVIEW_PASSWORD: 'pw' };
+const base = { DEVICE_TOKEN: 'tok', PREVIEW_PASSWORD: 'pw', OPENTRANSPORTDATA_KEY: 'key' };
 
 describe('loadConfig', () => {
   it('requires DEVICE_TOKEN and PREVIEW_PASSWORD', () => {
@@ -22,7 +22,7 @@ describe('loadConfig', () => {
     expect(c.ntfy).toBeNull();
     expect(c.viewResetSeconds).toBe(120);
     expect(c.wasteZip).toBe('8050');
-    expect(c.opentransportdataKey).toBeNull();
+    expect(c.opentransportdataKey).toBe('key');
   });
 
   it('has no birthdays by default, takes BIRTHDAYS and validates it', () => {
@@ -198,8 +198,9 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...base, ROSTER_TOKEN: token, ROSTER_NAME: 'Robin', ROSTER_BADGE: 'zu lang' })).toThrow(/ROSTER_BADGE must be 1–4 letters/);
   });
 
-  it('reads the opentransportdata.swiss key, trimmed, and treats blank as unset', () => {
+  it('requires the opentransportdata.swiss key and trims it', () => {
     expect(loadConfig({ ...base, OPENTRANSPORTDATA_KEY: ' abc \n' }).opentransportdataKey).toBe('abc');
-    expect(loadConfig({ ...base, OPENTRANSPORTDATA_KEY: '  ' }).opentransportdataKey).toBeNull();
+    expect(() => loadConfig({ DEVICE_TOKEN: 'tok', PREVIEW_PASSWORD: 'pw' })).toThrow(/OPENTRANSPORTDATA_KEY/);
+    expect(() => loadConfig({ ...base, OPENTRANSPORTDATA_KEY: '  ' })).toThrow(/OPENTRANSPORTDATA_KEY/);
   });
 });

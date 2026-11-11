@@ -29,42 +29,6 @@ export const TRANSIT_TTL_MS = 2 * 60_000;
 /** From this delay on, the departure time is shown inverted. */
 export const LATE_MIN = 5;
 
-const RAIL_CATEGORIES = new Set(['S', 'SN']);
-
-export function lineName(category: string, number: string): string {
-  return RAIL_CATEGORIES.has(category) ? `${category}${number}` : number;
-}
-
-export function stationboardUrl(id: string): string {
-  // Both directions are kept, so ask for enough journeys to fill the station screen.
-  return `https://transport.opendata.ch/v1/stationboard?id=${encodeURIComponent(id)}&limit=40`;
-}
-
-interface RawJourney {
-  category?: unknown;
-  number?: unknown;
-  to?: unknown;
-  stop?: { departureTimestamp?: unknown; delay?: unknown };
-  passList?: { station?: { name?: unknown } }[];
-}
-
-export function parseStationboard(json: unknown, station: StationConfig): Departure[] {
-  const raw = (json as { stationboard?: unknown } | null)?.stationboard;
-  const journeys: RawJourney[] = Array.isArray(raw) ? (raw as RawJourney[]) : [];
-  const out: Departure[] = [];
-  for (const j of journeys) {
-    // passList[0] is the station itself; the via stop must come after it.
-    const inbound = (j.passList ?? []).slice(1).some((p) => p?.station?.name === station.via);
-    const line = lineName(String(j.category ?? ''), String(j.number ?? ''));
-    if (station.lines.length > 0 && !station.lines.includes(line)) continue;
-    const planned = new Date(Number(j.stop?.departureTimestamp) * 1000);
-    if (Number.isNaN(planned.getTime())) continue;
-    const delay = Number(j.stop?.delay ?? 0);
-    out.push({ line, planned, delayMin: Number.isFinite(delay) ? delay : 0, to: typeof j.to === 'string' ? j.to : '', inbound });
-  }
-  return out;
-}
-
 /** Actual departure time including the delay. */
 export function departsAt(d: Departure): Date {
   return new Date(d.planned.getTime() + d.delayMin * 60_000);
@@ -87,12 +51,6 @@ export function shortStop(name: string): string {
   return name.replace(/^Zürich,?\s+/, '');
 }
 
-/** The stop's official name, e.g. «Zürich, Messe/Hallenstadion». */
-export function parseStationName(json: unknown): string | null {
-  const name = (json as { station?: { name?: unknown } } | null)?.station?.name;
-  return typeof name === 'string' && name !== '' ? name : null;
-}
-
 export function upcoming(deps: Departure[], now: Date, n = 4): Departure[] {
   return deps
     .filter((d) => d.planned.getTime() + d.delayMin * 60_000 >= now.getTime())
@@ -103,9 +61,9 @@ export function upcoming(deps: Departure[], now: Date, n = 4): Departure[] {
 export class TransitSource {
   private readonly entries: { station: StationConfig; cache: TtlCache<{ name: string | null; departures: Departure[] }> }[];
 
-  /** With an opentransportdata.swiss key the official OJP API is used; without, the transport.opendata.ch wrapper. */
-  constructor(stations: StationConfig[], fetchFn: FetchFn, clock: Clock, apiKey: string | null = null) {
-    const loadOjp = async (station: StationConfig) => {
+  /** Departures come from the official opentransportdata.swiss OJP API, which needs an API key. */
+  constructor(stations: StationConfig[], fetchFn: FetchFn, clock: Clock, apiKey: string) {
+    const load = async (station: StationConfig) => {
       const res = await fetchFn(OJP_URL, {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/xml' },
@@ -115,15 +73,9 @@ export class TransitSource {
       if (!res.ok) throw new Error(`OJP HTTP ${res.status}`);
       return parseStopEvents(await res.text(), station);
     };
-    const loadWrapper = async (station: StationConfig) => {
-      const res = await fetchFn(stationboardUrl(station.id), { signal: AbortSignal.timeout(TRANSIT_TIMEOUT_MS) });
-      if (!res.ok) throw new Error(`stationboard HTTP ${res.status}`);
-      const json = await res.json();
-      return { name: parseStationName(json), departures: parseStationboard(json, station) };
-    };
     this.entries = stations.map((station) => ({
       station,
-      cache: new TtlCache(TRANSIT_TTL_MS, () => (apiKey ? loadOjp(station) : loadWrapper(station)), clock, `transit:${station.name}`),
+      cache: new TtlCache(TRANSIT_TTL_MS, () => load(station), clock, `transit:${station.name}`),
     }));
   }
 
