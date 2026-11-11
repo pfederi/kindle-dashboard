@@ -10,8 +10,8 @@ import { testClock } from './helpers.js';
 const november = JSON.parse(readFileSync(new URL('./fixtures/roster-page.json', import.meta.url), 'utf8')) as PdfPage;
 const PDF = new TextEncoder().encode('%PDF-1.7 …');
 
-function setup(dir = mkdtempSync(join(tmpdir(), 'roster-'))) {
-  const store = new RosterStore(dir);
+function setup(dir = mkdtempSync(join(tmpdir(), 'roster-')), mounted = true) {
+  const store = new RosterStore(dir, () => mounted);
   const notify = vi.fn(async () => {});
   const extract = vi.fn(async () => november);
   const clock = testClock('2026-11-11T20:00:00+01:00');
@@ -26,6 +26,14 @@ describe('receiveRoster', () => {
     expect(store.day(new Date('2026-11-13T09:00:00+01:00'))).toEqual({ kind: 'work', start: '13:30', end: '22:30' });
     expect(notify).toHaveBeenCalledWith({ title: 'Dienstplan', message: reply.text, tags: 'calendar', priority: 'default' });
     expect(store.lastError).toBeNull();
+  });
+
+  it('warns, in the reply and by push, when the plan would not survive the next deploy', async () => {
+    const { notify, upload } = setup(undefined, false);
+    const reply = await upload();
+    expect(reply.status).toBe(200);
+    expect(reply.text).toMatch(/^November 2026: 10× Arbeit.* Achtung: Ablage ist kein Volume, der Plan geht beim nächsten Deploy verloren\.$/);
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ title: 'Dienstplan', message: reply.text, tags: 'warning' }));
   });
 
   it('refuses a file that is not a PDF without reading it', async () => {

@@ -56,6 +56,13 @@ describe('RosterStore', () => {
     expect(store.today(d('2026-12-02T07:00:00+01:00'))).toBeNull();
   });
 
+  it('knows whether its directory is a volume of its own, so a deploy keeps the plans', () => {
+    const dir = tmp();
+    expect(new RosterStore(dir, () => true).persistent()).toBe(true);
+    expect(new RosterStore(dir).persistent()).toBe(false); // a temp dir shares the device of its parent
+    expect(new RosterStore(join(dir, 'nope')).persistent()).toBe(false);
+  });
+
   it('starts without the directory and skips unreadable files; saving there throws', () => {
     const missing = new RosterStore(join(tmp(), 'nope'));
     expect(() => missing.load()).not.toThrow();

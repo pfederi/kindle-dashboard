@@ -16,7 +16,7 @@ export interface StatusModel {
   battery: readonly BatterySample[];
   sources: SourceHealth[];
   /** Uploaded duty rosters; absent = roster off. */
-  roster?: { months: { month: string; uploadedAt: Date }[]; lastError: { at: Date; text: string } | null };
+  roster?: { months: { month: string; uploadedAt: Date }[]; lastError: { at: Date; text: string } | null; /** The plans survive a deploy; absent = unknown. */ persistent?: boolean };
 }
 
 const dateTime = (d: Date) => `${formatWeekday(d)} ${isoDate(d).slice(8, 10)}.${isoDate(d).slice(5, 7)}. ${formatTime(d)}`;
@@ -167,6 +167,12 @@ function Status({ m }: { m: StatusModel }) {
             <dd>{m.roster.months.length === 0 ? 'noch keiner hochgeladen' : m.roster.months.map((r) => `${monthLabel(r.month)} · hochgeladen ${dateTime(r.uploadedAt)}`).join(', ')}</dd>
             <dt>Letzter Fehler</dt>
             <dd>{m.roster.lastError ? `${dateTime(m.roster.lastError.at)}: ${m.roster.lastError.text}` : '–'}</dd>
+            {m.roster.persistent !== undefined && (
+              <>
+                <dt>Ablage</dt>
+                <dd>{m.roster.persistent ? <Badge ok text="Volume" /> : <Badge ok={false} text="kein Volume: Pläne gehen beim nächsten Deploy verloren" />}</dd>
+              </>
+            )}
           </dl>
         </>
       )}

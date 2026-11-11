@@ -97,6 +97,7 @@ async function main(): Promise<void> {
   const rosterConfig = config.roster;
   const rosterStore = rosterConfig ? new RosterStore(rosterConfig.dir) : null;
   rosterStore?.load();
+  if (rosterStore && !rosterStore.persistent()) console.warn(`[roster] ${rosterConfig?.dir} is not a volume: uploaded plans are lost on the next deploy`);
   const calendarSource = new CalendarSource(config.calendars, fetchFn, clock);
 
   const status = new DeviceStatus(clock);
@@ -144,7 +145,7 @@ async function main(): Promise<void> {
       void batteryMonitor?.report(b);
     },
     statusHtml: () =>
-      statusHtml({ now: clock(), startedAt: status.startedAt, lastSeen: status.lastSeen, nextDue: status.nextDue, battery: status.history(), sources: sourceHealth.list(), roster: rosterStore ? { months: rosterStore.list(), lastError: rosterStore.lastError } : undefined }),
+      statusHtml({ now: clock(), startedAt: status.startedAt, lastSeen: status.lastSeen, nextDue: status.nextDue, battery: status.history(), sources: sourceHealth.list(), roster: rosterStore ? { months: rosterStore.list(), lastError: rosterStore.lastError, persistent: rosterStore.persistent() } : undefined }),
     logger: true,
   });
   let shuttingDown = false;

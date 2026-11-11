@@ -156,7 +156,7 @@ Der Kindle schickt bei jeder Abfrage seinen Ladestand mit. Sinkt er auf 20 % ode
 
 Ein monatlicher Dienstplan als PDF (Excel-Export mit Tageszeile «1. 2. 3. …», je Person eine Zeile mit Beginn und Ende, Schule hellblau) kommt per Kurzbefehl auf den Server. Danach stehen die Dienste als «Arbeit» bzw. «Schule» im Kalender, und die Roller-Zeile zeigt an Diensttagen nur das passende Ziel mit der Losfahrzeit («Arbeit 13:30 · los 12:58 · 27 Min.»), an freien Tagen keine Zeile. Für einen Monat ohne Plan bleibt alles wie ohne Dienstplan.
 
-1. In Coolify `ROSTER_TOKEN` und `ROSTER_NAME` setzen und unter «Persistent Storage» ein Volume auf `/app/state` einrichten.
+1. In Coolify `ROSTER_TOKEN` und `ROSTER_NAME` setzen und unter «Persistent Storage» ein Volume auf `/app/state` einrichten («Volume Mount», Quellpfad leer). Fehlt es, nimmt der Server den Plan trotzdem an, verliert ihn aber beim nächsten Deploy; die Antwort und die Statusseite warnen dann («kein Volume»).
 2. Auf dem iPhone in «Kurzbefehle» einen neuen Kurzbefehl «Dienstplan senden» anlegen: in den Details «Im Share-Sheet anzeigen» einschalten, Eingabe nur «PDFs». Aktionen: «Inhalte von URL abrufen» mit der Adresse `https://<dashboard>/dienstplan`, Methode `POST`, Header `Authorization` = `Bearer <ROSTER_TOKEN>` und `Content-Type` = `application/pdf`, Anfragetext «Datei» = «Kurzbefehleingabe»; danach «Ergebnis anzeigen».
 3. In WhatsApp das PDF öffnen → Teilen → «Dienstplan senden». Die Antwort, z. B. «November 2026: 10× Arbeit, 9× Schule, 11× frei. Nächster Dienst: …», erscheint sofort und mit `NTFY_TOPIC` auch als Push. Ein neuer Plan für denselben Monat ersetzt den alten.
 

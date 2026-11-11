@@ -74,5 +74,7 @@ describe('status page', () => {
     expect(html).toContain('November 2026 · hochgeladen Fr 06.11. 20:54');
     expect(html).toContain('Fr 06.11. 20:50: Dienstplan nicht erkannt: Name «X» nicht gefunden');
     expect(statusHtml({ ...base, roster: { months: [], lastError: null } })).toContain('noch keiner hochgeladen');
+    expect(statusHtml({ ...base, roster: { months: [], lastError: null, persistent: false } })).toContain('⚠ kein Volume: Pläne gehen beim nächsten Deploy verloren');
+    expect(statusHtml({ ...base, roster: { months: [], lastError: null, persistent: true } })).toContain('✓ Volume');
   });
 });

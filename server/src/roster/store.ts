@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { isoDate } from '../format.js';
 import type { Roster, RosterDay } from './parse.js';
 import { type Shift, shiftOn } from './shift.js';
@@ -13,6 +13,12 @@ function isStored(v: unknown): v is Roster & { uploadedAt: string } {
   );
 }
 
+/** A volume (or any mount) sits on another device than the directory it is mounted in. */
+export function isOwnMount(dir: string): boolean {
+  const path = resolve(dir);
+  return statSync(path).dev !== statSync(dirname(path)).dev;
+}
+
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 /** Read rosters, one JSON file per month in `dir` (a volume in Coolify); a new upload replaces its month. */
@@ -21,7 +27,23 @@ export class RosterStore {
   /** The last failed upload, for the status page; a good one clears it. */
   lastError: { at: Date; text: string } | null = null;
 
-  constructor(private readonly dir: string) {}
+  /** @param mounted whether `dir` is a volume of its own (for tests). */
+  constructor(
+    private readonly dir: string,
+    private readonly mounted: (dir: string) => boolean = isOwnMount,
+  ) {}
+
+  /**
+   * Whether the plans survive a deploy: the directory is a volume of its own. Without one the
+   * Dockerfile's /app/state still takes uploads, but only inside the container.
+   */
+  persistent(): boolean {
+    try {
+      return this.mounted(this.dir);
+    } catch {
+      return false;
+    }
+  }
 
   /** Reads what is there; a missing directory or a broken file is logged, never fatal. */
   load(): void {

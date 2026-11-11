@@ -13,7 +13,7 @@ export interface RosterReply {
 
 export interface RosterUpload {
   name: string;
-  store: Pick<RosterStore, 'save' | 'lastError'>;
+  store: Pick<RosterStore, 'save' | 'lastError' | 'persistent'>;
   clock: Clock;
   notify?: (n: Notice) => Promise<void>;
   /** For tests. */
@@ -50,7 +50,8 @@ export async function receiveRoster(pdf: Uint8Array, u: RosterUpload): Promise<R
     return fail(500, 'Dienstplan nicht gespeichert: Ablage nicht beschreibbar', 'Dienstplan nicht gespeichert');
   }
   u.store.lastError = null;
-  const text = summarize(roster, now);
-  await u.notify?.({ title: 'Dienstplan', message: text, tags: 'calendar', priority: 'default' });
+  const kept = u.store.persistent();
+  const text = kept ? summarize(roster, now) : `${summarize(roster, now)} Achtung: Ablage ist kein Volume, der Plan geht beim nächsten Deploy verloren.`;
+  await u.notify?.({ title: 'Dienstplan', message: text, tags: kept ? 'calendar' : 'warning', priority: 'default' });
   return { status: 200, text };
 }
