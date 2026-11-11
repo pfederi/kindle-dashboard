@@ -69,6 +69,23 @@ describe('parseRoster', () => {
     fails(plan({}), 'Zeta', /Keine Dienste für «Zeta» im November 2026/);
   });
 
+  it('takes any blue cell as school, other colours as work (Excel offers several blues)', () => {
+    const page = plan({ 1: ['13:30', '22:30'], 2: ['13:30', '22:30'], 3: ['13:30', '22:30'] });
+    page.rects = [
+      { color: '#0070c0', x0: 48, y0: 285, x1: 72, y1: 305 },
+      { color: '#ffc000', x0: 72, y0: 285, x1: 96, y1: 305 },
+      { color: '#7030a0', x0: 96, y0: 285, x1: 120, y1: 305 },
+    ];
+    const r = parseRoster(page, 'Zeta');
+    expect([r.days[1]?.kind, r.days[2]?.kind, r.days[3]?.kind]).toEqual(['school', 'work', 'work']);
+  });
+
+  it('refuses a name that heads two rows, rather than taking a colleague\'s', () => {
+    const page = plan({ 1: ['13:30', '22:30'] });
+    page.words.push({ text: 'Zeta', x: 3, y: 200, w: 20 });
+    expect(() => parseRoster(page, 'Zeta')).toThrow(/Name «Zeta» steht mehrmals im Plan/);
+  });
+
   it('names a month in German', () => {
     expect(monthLabel('2026-12')).toBe('Dezember 2026');
   });

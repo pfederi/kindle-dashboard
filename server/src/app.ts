@@ -182,13 +182,24 @@ export function buildApp(opts: {
 
   if (opts.roster) {
     const roster = opts.roster;
-    // The shortcut sends the file as it is; some versions of Shortcuts call it octet-stream.
-    app.addContentTypeParser(['application/pdf', 'application/octet-stream'], { parseAs: 'buffer', bodyLimit: ROSTER_MAX_BYTES }, (_req, body, done) => done(null, body));
-    app.post('/dienstplan', { onRequest: bearerAuth(roster.token), bodyLimit: ROSTER_MAX_BYTES }, async (req, reply) => {
-      // Text and JSON have parsers of their own and arrive here as string or object.
-      if (!Buffer.isBuffer(req.body)) return reply.code(415).send();
-      const r = await roster.receive(req.body);
-      return reply.code(r.status).header('Content-Type', 'text/plain; charset=utf-8').send(r.text);
+    // A scope of its own: its parsers and errors stay with the upload. The shortcut shows whatever comes
+    // back, so every answer is a sentence in plain text.
+    void app.register(async (scope) => {
+      const text = (reply: FastifyReply, status: number, body: string) => reply.code(status).header('Content-Type', 'text/plain; charset=utf-8').send(body);
+      // Any body as bytes, whatever its type: the check in `receive` answers a wrong file readably.
+      scope.removeAllContentTypeParsers();
+      scope.addContentTypeParser('*', { parseAs: 'buffer', bodyLimit: ROSTER_MAX_BYTES }, (_req, body, done) => done(null, body));
+      scope.setErrorHandler((err: unknown, req, reply) => {
+        const code = (err as { statusCode?: unknown } | null)?.statusCode;
+        if (code === 413) return text(reply, 413, 'Dienstplan nicht erkannt: Datei zu gross (höchstens 2 MB)');
+        if (typeof code === 'number' && code >= 400 && code <= 499) return text(reply, code, 'Dienstplan nicht erkannt: Anfrage ungültig');
+        req.log.error({ msg: err instanceof Error ? err.message : String(err) });
+        return text(reply, 500, 'Dienstplan nicht gespeichert: Fehler auf dem Server');
+      });
+      scope.post('/dienstplan', { onRequest: bearerAuth(roster.token), bodyLimit: ROSTER_MAX_BYTES }, async (req, reply) => {
+        const r = await roster.receive(Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0));
+        return text(reply, r.status, r.text);
+      });
     });
   }
 

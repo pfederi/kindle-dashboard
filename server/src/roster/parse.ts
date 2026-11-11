@@ -15,8 +15,14 @@ export class RosterError extends Error {}
 export const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 /** Codes for a day without duty: free, ill, holiday, vacation, accident, not worked. */
 const FREE = new Set(['X', 'K', 'FT', 'FE', 'U', 'NG']);
-/** Light blue cells are school days. */
-export const SCHOOL_COLOR = '#00b0f0';
+/**
+ * Blue cells are school days (the plan uses Excel's light blue #00b0f0); any blue counts, so another
+ * shade in a later export does not quietly turn school into work. Blue: the strongest channel, well above red.
+ */
+export function isSchoolColor(hex: string): boolean {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
+  return b > g && b - r > 64;
+}
 /** School hours, for plans whose cells carry no colour. */
 const SCHOOL_HOURS = { start: '07:30', end: '16:25' };
 const PLAIN = new Set(['#ffffff', '#000000']);
@@ -68,7 +74,9 @@ export function parseRoster(page: PdfPage, name: string): Roster {
   const centres = columns(words, days, label);
   const width = (centres.at(-1)! - centres[0]!) / (centres.length - 1);
 
-  const person = words.find((w) => w.text.toLowerCase() === name.trim().toLowerCase() && w.x + w.w < centres[0]! - width / 2);
+  const rows = words.filter((w) => w.text.toLowerCase() === name.trim().toLowerCase() && w.x + w.w < centres[0]! - width / 2);
+  if (rows.length > 1) throw new RosterError(`Name «${name}» steht mehrmals im Plan`);
+  const person = rows[0];
   if (!person) throw new RosterError(`Name «${name}» nicht gefunden`);
   // The start times sit a little higher than the name.
   const top = person.y + width / 3;
@@ -100,7 +108,7 @@ export function parseRoster(page: PdfPage, name: string): Roster {
     const y = (tokens[0]!.y + tokens[1]!.y) / 2;
     const school =
       coloured.length > 0
-        ? coloured.some((r) => r.color === SCHOOL_COLOR && x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1)
+        ? coloured.some((r) => isSchoolColor(r.color) && x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1)
         : start === SCHOOL_HOURS.start && end === SCHOOL_HOURS.end;
     out[day] = { kind: school ? 'school' : 'work', start, end };
     duties++;

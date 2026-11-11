@@ -233,15 +233,36 @@ describe('HTTP API', () => {
       expect((await post(a, { authorization: `Bearer ${token}`, 'content-type': 'application/octet-stream' })).statusCode).toBe(200);
     });
 
-    it('refuses a wrong token before reading, other types and files over 2 MB', async () => {
+    it('refuses a wrong token before reading', async () => {
       const { a, receive } = withRoster();
       expect((await post(a, { authorization: 'Bearer device-token', 'content-type': 'application/pdf' })).statusCode).toBe(401);
       expect((await post(a, { 'content-type': 'application/pdf' })).statusCode).toBe(401);
       expect(receive).not.toHaveBeenCalled();
-      expect((await post(a, { authorization: `Bearer ${token}`, 'content-type': 'text/plain' }, 'hallo')).statusCode).toBe(415);
-      expect((await post(a, { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, '{}')).statusCode).toBe(415);
-      expect((await post(a, { authorization: `Bearer ${token}`, 'content-type': 'application/pdf' }, Buffer.alloc(ROSTER_MAX_BYTES + 1))).statusCode).toBe(413);
+    });
+
+    it('hands any body to the check as bytes, so a wrong file gets a sentence the shortcut can show', async () => {
+      const { a, receive } = withRoster();
+      const auth = { authorization: `Bearer ${token}` };
+      for (const type of ['image/jpeg', 'text/plain', 'application/json', 'multipart/form-data; boundary=x']) {
+        expect((await post(a, { ...auth, 'content-type': type }, 'GIF89a')).statusCode).toBe(200);
+        expect((receive.mock.calls.at(-1) as unknown as [Buffer])[0].toString()).toBe('GIF89a');
+      }
+      expect((await post(a, auth, 'GIF89a')).statusCode).toBe(200); // no type at all
+      expect((await post(a, auth, '')).statusCode).toBe(200); // nothing at all
+      expect((receive.mock.calls.at(-1) as unknown as [Buffer])[0]).toEqual(Buffer.alloc(0));
+    });
+
+    it('says in plain text when the file is too large, without reading it', async () => {
+      const { a, receive } = withRoster();
+      const res = await post(a, { authorization: `Bearer ${token}`, 'content-type': 'application/pdf' }, Buffer.alloc(ROSTER_MAX_BYTES + 1));
+      expect([res.statusCode, res.headers['content-type'], res.body]).toEqual([413, 'text/plain; charset=utf-8', 'Dienstplan nicht erkannt: Datei zu gross (höchstens 2 MB)']);
       expect(receive).not.toHaveBeenCalled();
+    });
+
+    it('keeps its parsers to itself: other routes still refuse raw bytes', async () => {
+      const { a } = withRoster();
+      const res = await a.inject({ method: 'POST', url: '/tap', headers: { ...bearer, 'content-type': 'application/octet-stream' }, payload: Buffer.from('x') });
+      expect(res.statusCode).toBe(415);
     });
   });
 
