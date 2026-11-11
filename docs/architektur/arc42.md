@@ -30,6 +30,7 @@ Ein ausgedienter E-Reader (Kindle 7. Generation) hängt im Eingang und zeigt auf
 - Abfahrten an drei Haltestellen, im Detail in beide Richtungen mit Endhaltestelle
 - die Bring!-Einkaufsliste: ansehen (seitenweise), abhaken, als dringend markieren, Artikel erfassen
 - Aufgaben aus einer zweiten Bring!-Liste: am Kindle und am Handy erfassen, mit einem Tipp erledigen
+- Fahrzeit mit dem Roller zur Arbeit und zur Schule mit Verkehr, Karte «Arbeitsweg» mit Stau; mit einem monatlichen Dienstplan (PDF, per iPhone-Kurzbefehl hochgeladen) stehen die Dienste im Kalender, und die Zeile sagt, wann man losfahren muss
 
 Ab 19 Uhr rückt der folgende Tag in den Vordergrund, in der Nachtruhe (00:00–05:30) zeigt ein ruhiger Nachtbildschirm das Wichtigste des kommenden Tages. Bei den Abfahrten berücksichtigt das Dashboard den Fussweg zur Haltestelle («los 07:45»). Bedient wird per Touch; ohne Bedienung kehrt die Anzeige zu «Heute» zurück. Bei Besuch schwärzt ein Gast-Modus die Termintitel, an Geburtstagen grüsst «Heute» mit «Happy Birthday …!».
 
@@ -99,7 +100,9 @@ flowchart LR
   server --> transport[transport.opendata.ch<br/>Abfahrten]
   server --> erz[OpenERZ<br/>Entsorgung]
   server <--> bring[Bring!<br/>Einkaufsliste, Aufgaben]
+  server --> here[HERE<br/>Fahrzeit, Karte]
   admin([Betreiber]) -- Vorschau im Browser --> server
+  phone([iPhone-Kurzbefehl]) -- Dienstplan-PDF --> server
   bringapp([Bring!-App]) <--> bring
   server -- Push bei Ausfall oder leerem Akku --> ntfy[ntfy] --> admin
 ```
@@ -115,6 +118,7 @@ flowchart LR
 | HERE Routing | Fahrzeit mit dem Roller (Modus `scooter`, Autobahn wählbar) mit Echtzeitverkehr und üblicher Fahrzeit; für «Arbeitsweg» zusätzlich Verlauf, Tempo pro Abschnitt, Strassennamen und eine Alternative |
 | HERE Map Image | Hintergrundkarte für «Arbeitsweg» (Stil `lite.day`, Schrift doppelt gross) |
 | Kalender | geheime iCal-Adressen, ein Kürzel pro Kalender |
+| iPhone-Kurzbefehl | schickt den Dienstplan (PDF aus WhatsApp, Teilen-Menü) an `POST /dienstplan`; bekommt eine lesbare Antwort zurück |
 | transport.opendata.ch | Abfahrtstafeln (Linie, Zeit, Verspätung, Endhaltestelle, Zwischenhalte) |
 | OpenERZ | Sammeltermine Papier und Karton für eine Postleitzahl |
 | Bring! | Liste lesen, Artikel hinzufügen, abhaken, zurücklegen; Artikelkatalog |
@@ -132,6 +136,7 @@ flowchart LR
   k -- "HTTPS GET /screen.png<br/>Bearer-Token" --> t
   k -- "HTTPS POST /tap {x,y,hold?}" --> t
   b([Browser]) -- "HTTPS /preview<br/>Basic Auth" --> t
+  p([iPhone]) -- "HTTPS POST /dienstplan<br/>Bearer ROSTER_TOKEN" --> t
   s -- HTTPS --> apis[(Externe APIs)]
   s -- "HTTPS POST /topic" --> n[ntfy.sh]
   gh[GitHub] -- Webhook --> c[Coolify] -- Build & Deploy --> s
@@ -142,7 +147,8 @@ flowchart LR
 | `GET /screen.png` | HTTPS, `Authorization: Bearer <DEVICE_TOKEN>`; optional `X-Battery` (0–100) und `X-Charging: 1` | PNG 600 × 800, Header `ETag`, `X-Refresh-Seconds`, `X-Full-Refresh` |
 | `POST /tap` | HTTPS, Bearer | JSON `{x, y, hold?}` in Gerätepixeln, `hold: true` für einen Langdruck; Antwort neues PNG oder `204` |
 | `GET /healthz` | HTTPS | `ok` für den Healthcheck |
-| `GET /preview`, `/preview/:view` | HTTPS, Basic Auth (`admin`) | Übersicht, HTML oder PNG einer Ansicht (`?png=1`, `?station=N`, `?abend=1`, `?nacht=1`, `?akku=1`, `?laden=1`, `?nebel=1` (Uetliberg sonnig über dem Nebel), `?stau=1` (Stau auf der echten Route nachgestellt), `?ziel=0|1` (Arbeit oder Schule), `?schule=1` (Heute mit Schule an jedem Tag), `?mond=0–359`, `?feiertag=neujahr|ostern|august|weihnachten`); `/preview/nacht` mit allen Mondphasen und Feiertagen; `/preview/status` mit Kindle, Akkukurve und Datenquellen |
+| `POST /dienstplan` | HTTPS, `Authorization: Bearer <ROSTER_TOKEN>`, `Content-Type: application/pdf`, höchstens 2 MB; Route nur mit `ROSTER_TOKEN` | Antwort `text/plain`: 200 mit Zusammenfassung («November 2026: 10× Arbeit, 9× Schule, 11× frei. Nächster Dienst: …»), 422 mit Grund («Name nicht gefunden»), 413, 415, 401 ohne Hinweis, 500 bei nicht beschreibbarer Ablage; dieselbe Meldung geht per ntfy |
+| `GET /preview`, `/preview/:view` | HTTPS, Basic Auth (`admin`) | Übersicht, HTML oder PNG einer Ansicht (`?png=1`, `?station=N`, `?abend=1`, `?nacht=1`, `?akku=1`, `?laden=1`, `?nebel=1` (Uetliberg sonnig über dem Nebel), `?stau=1` (Stau auf der echten Route nachgestellt), `?ziel=0|1` (Arbeit oder Schule), `?schule=1` (Heute mit Schule an jedem Tag), `?dienst=arbeit|schule` (Heute mit erfundenem Dienst in ein bis zwei Stunden), `?mond=0–359`, `?feiertag=neujahr|ostern|august|weihnachten`); `/preview/nacht` mit allen Mondphasen und Feiertagen; `/preview/status` mit Kindle, Akkukurve, Datenquellen und Dienstplänen |
 | HERE (ausgehend) | HTTPS `GET router.hereapi.com/v8/routes?transportMode=scooter&return=summary,typicalDuration` mit `apiKey` | Fahrzeit und übliche Fahrzeit je Ziel (Arbeit, optional Schule); alle 5 Min., nur solange «Heute» abgefragt wird; Fehler nennen nie die Adresse (Schlüssel) |
 | HERE «Arbeitsweg» (ausgehend) | HTTPS `GET router.hereapi.com/v8/routes?…&return=polyline,summary,typicalDuration&spans=dynamicSpeedInfo,names,length&alternatives=1`, `GET image.maps.hereapi.com/mia/v3/base/mc/center:…;zoom=…/1106x1076/png?style=lite.day&ppi=200` | Nur beim Öffnen von «Arbeitsweg», Route höchstens alle 2 Min.; die Karte eines Ausschnitts wird einmal geholt und behalten (bis 8 Ausschnitte); ohne Karte wird die Route auf Weiss gezeichnet |
 | ntfy (ausgehend) | HTTPS `POST <NTFY_SERVER>/<NTFY_TOPIC>` | Meldung «Kindle meldet sich nicht» bzw. «wieder online», «Kindle-Akku fast leer», bei 5 % «Kindle-Akku: JETZT LADEN» |
@@ -196,13 +202,14 @@ flowchart TB
 
 | Baustein | Dateien | Verantwortung |
 |---|---|---|
-| HTTP-API | `app.ts`, `main.ts` | Routen, Authentifizierung, Verdrahtung, Herunterfahren |
-| Konfiguration | `config.ts` | Umgebungsvariablen lesen und prüfen (Kalender, Haltestellen, Geburtstage, Nachtruhe, …); Fehler nennen nie geheime Werte |
+| HTTP-API | `app.ts`, `main.ts` | Routen (inkl. `/dienstplan` mit eigenem Token), Authentifizierung, Verdrahtung, Herunterfahren |
+| Konfiguration | `config.ts` | Umgebungsvariablen lesen und prüfen (Kalender, Haltestellen, Geburtstage, Nachtruhe, Roller-Fahrten, Dienstplan, `STATE_DIR`, …); Fehler nennen nie geheime Werte |
 | Dashboard | `dashboard.ts` | Zustand (Ansicht, Eingabe, Meldungen, Gast-Schalter), Taps und Langdrücke auf Aktionen abbilden, Daten je Ansicht zusammenstellen (inkl. Gast-Modus und Geburtstage des Tages), Vorschau |
 | Zustand | `state.ts`, `zones.ts` | Ansichten, Aktionen (`nav:`, `key:`, `add:`, `done:`, `station:`, `weather`, `commute:`, `guest`, …), Navigation, Rückkehr nach Inaktivität, Aktualisierungsrhythmus, Tap- und Langdruck-Bereiche |
 | Gast-Modus | `guest.ts` | Wann Termintitel verborgen werden («Besuch»-Termine, Langdruck), Titel durch Balken ersetzen, Gästenamen aus den «Besuch»-Terminen |
 | Begrüssung | `views/heute.tsx`, `views/qr.ts` | «Herzlich willkommen …!» mit QR-Code fürs Gäste-WLAN statt der Termine in «Heute» im Gast-Modus |
-| Status | `status.ts`, `health.ts`, `views/status.tsx` | Letzte Abfrage und Akkuverlauf des Kindle, Erfolg und Fehler jeder Datenquelle (aus `TtlCache`); Seite `/preview/status` |
+| Status | `status.ts`, `health.ts`, `views/status.tsx` | Letzte Abfrage und Akkuverlauf des Kindle (Kurve in `STATE_DIR/battery.json`, `BatteryFile`), Erfolg und Fehler jeder Datenquelle (aus `TtlCache`), geladene Dienstplanmonate und letzter Upload-Fehler; Seite `/preview/status` |
+| Dienstplan | `roster/pdf.ts`, `parse.ts`, `store.ts`, `upload.ts`, `shift.ts`, `calendar.ts`, `summary.ts` | `extractPdf` liest Wörter und gefüllte Rechtecke aus dem PDF (pdfjs-dist), `parseRoster` (rein) macht daraus Tage mit Dienst oder frei; `RosterStore` legt pro Monat `roster-YYYY-MM.json` in `STATE_DIR` ab; `receiveRoster` verbindet Lesen, Ablegen, Antwort und ntfy; `withRoster` fügt die Dienste als Kalendertermine ein; `shift.ts` rechnet Dienstzeiten und Losfahrzeit |
 | Datenquellen | `sources/weather.ts`, `lake.ts`, `uetliberg.ts`, `calendar.ts`, `transit.ts`, `waste.ts`, `commute.ts`, `commute-route.ts`, `bring/` | Abruf und Aufbereitung je Quelle; Bring! mit zwei Listen (Einkauf, Aufgaben) über eine Anmeldung |
 | Zwischenspeicher | `cache.ts` | Ablaufzeit, Rückfall auf ältere Werte, gleichzeitige Abfragen bündeln |
 | Überwachung | `monitor.ts` | Merkt sich nach jedem Bild, wann der Kindle wiederkommen soll; meldet Ausfall und Rückkehr über ntfy, ebenso einen Akku ab 20 % |
@@ -338,6 +345,30 @@ sequenceDiagram
   M->>N: «Kindle wieder online»
 ```
 
+### 6.7 Dienstplan hochladen
+
+```mermaid
+sequenceDiagram
+  participant P as iPhone (Kurzbefehl)
+  participant S as Server
+  participant R as parseRoster
+  participant D as STATE_DIR
+  participant N as ntfy
+  P->>S: POST /dienstplan (PDF, Bearer ROSTER_TOKEN)
+  S->>S: Token (konstante Zeit), Typ, Grösse prüfen
+  S->>R: extractPdf → Wörter und Rechtecke → parseRoster(Name)
+  alt erkannt
+    R->>D: roster-YYYY-MM.json (temporäre Datei, rename) – ersetzt den Monat
+    S-->>P: 200 «November 2026: 10× Arbeit, …»
+    S->>N: «Dienstplan» (falls NTFY_TOPIC)
+  else nicht erkannt
+    S-->>P: 422 «Dienstplan nicht erkannt: …» (bisheriger Plan bleibt)
+    S->>N: «Dienstplan nicht erkannt»
+  end
+```
+
+Danach erscheinen die Dienste über `withRoster` als Termine «Arbeit» bzw. «Schule» in «Heute», «Woche» und auf dem Nachtbildschirm. Die Roller-Zeile zeigt an Diensttagen nur das Ziel des Dienstes mit der Losfahrzeit, an freien Tagen keine Zeile; für einen Monat ohne Plan bleibt alles wie ohne Dienstplan.
+
 ---
 
 ## 7. Verteilungssicht
@@ -353,9 +384,11 @@ flowchart LR
     traefik[Traefik + Let's Encrypt]
     container[Docker: Playwright-Image<br/>Node.js + Chromium<br/>Port 3000]
     env[(Umgebungsvariablen<br/>Secrets)]
+    vol[(Volume /app/state<br/>Dienstpläne · battery.json)]
   end
   device -- WLAN / Internet / HTTPS --> traefik --> container
   env -.-> container
+  vol <-.-> container
   git[GitHub privat] -- Webhook --> host
 ```
 
@@ -364,6 +397,7 @@ flowchart LR
 | Kindle | `dashboard` (statisches ARMv7-Binary, ca. 6,6 MB), `config.json`, Skripte | Gebaut mit `make dist` in Docker; per USB kopiert |
 | Server | Docker-Image aus `server/Dockerfile` | Basis `mcr.microsoft.com/playwright`; Healthcheck `/healthz` |
 | Konfiguration | Umgebungsvariablen in Coolify | siehe README; Geheimnisse als *Secret* markiert |
+| Ablage | Volume auf `/app/state` (`STATE_DIR`) | Einziger dauerhafter Zustand: `roster-YYYY-MM.json` je Monat und `battery.json` (Akkukurve, 7 Tage). Das Dockerfile legt das Verzeichnis für `pwuser` an, damit ein neues Volume die Rechte erbt. Ohne Volume läuft alles, die Daten gehen aber beim nächsten Deploy verloren; `RosterStore.persistent()` erkennt das (Gerät des Verzeichnisses ≠ Gerät des übergeordneten) und warnt in Log, Upload-Antwort und Statusseite. Fehlt das Verzeichnis oder ist es nicht beschreibbar, läuft der Server weiter. |
 
 ---
 
@@ -387,11 +421,12 @@ flowchart LR
 - Der Server führt **einen** Gerätezustand: Ansicht, Rückkehr-Tab, Eingabe, Meldung, abgehakter Artikel (für «Rückgängig»), eingefrorene «Oft gekauft»-Kacheln, gewählte Haltestelle, Reiter von «Hinzufügen» (Einkauf/Aufgabe), eben erfasster Artikel (für «🏃 Dringend» in der Meldung), Seite von «Einkauf», Gast-Schalter.
 - Overlays (Hinzufügen, Haltestelle, Wetter, Arbeitsweg) merken sich den Tab, von dem sie geöffnet wurden.
 - Nach 2 Minuten ohne Tap kehrt die Anzeige zu «Heute» zurück; ausserhalb von «Heute» plant der Server die nächste Abfrage genau auf diesen Zeitpunkt. Ab 19 Uhr wechselt «Heute» in den Abendmodus, in der Nachtruhe (Standard 00:00–05:30) in den Nachtbildschirm. Der Kindle schaltet dann das WLAN aus und erst zur nächsten Abfrage oder bei einem Tap wieder ein (etwa 6 s).
-- **Akku:** Der Kindle schickt mit jeder Bildabfrage `X-Battery` und `X-Charging`. Bei 20 % oder weniger ohne Netzteil zeigen «Heute» und der Nachtbildschirm den Ladestand im Kopf (leerer Akku, schwarz), am Netzteil immer (Akku mit Blitz, grau); `BatteryMonitor` meldet einmal «fast leer» und bei 5 % dringend «JETZT LADEN», erneut erst nach dem Laden. Jede Änderung des Ladestands steht im Server-Log.
+- **Akku:** Der Kindle schickt mit jeder Bildabfrage `X-Battery` und `X-Charging`. Bei 20 % oder weniger ohne Netzteil zeigen «Heute» und der Nachtbildschirm den Ladestand im Kopf (leerer Akku, schwarz), am Netzteil immer (Akku mit Blitz, grau); `BatteryMonitor` meldet einmal «fast leer» und bei 5 % dringend «JETZT LADEN», erneut erst nach dem Laden. Jede Änderung des Ladestands steht im Server-Log. Die Akkukurve der letzten 7 Tage liegt in `STATE_DIR/battery.json` und übersteht Deployments; ein Schreibfehler wird einmal geloggt und nie geworfen.
 - Abfahrten berücksichtigen den Fussweg pro Haltestelle (`walk`): nicht mehr erreichbare sind grau, die Losgeh-Zeit steht als Uhrzeit im Spaltenkopf. Als Uhrzeit, weil das Bild bis zu 2 Minuten alt sein kann.
 - **Gast-Modus:** Solange ein Termin läuft, dessen Titel mit «Besuch» beginnt, sind in Heute, Woche und Nachtbildschirm alle Termintitel durch einen gleich breiten schwarzen Balken ersetzt; Uhrzeit, Kalenderkürzel, «Besuch»-Termine und Entsorgung bleiben lesbar, ein Schloss zeigt den Modus an. Die Titel gelangen gar nicht erst ins HTML. Ein Langdruck auf die Termine schaltet von Hand um: ein bis zum Ende der gerade laufenden Termine mit Uhrzeit (ohne laufenden Termin bis zum nächsten Langdruck), während eines Besuchs aus bis zu dessen Ende. Der Schalter liegt nur im Arbeitsspeicher; nach einem Neustart des Servers gilt wieder nur der Kalender. Mit `GUEST_WIFI_SSID` zeigt «Heute» im Gast-Modus im Terminbereich eine Begrüssung mit den Gästenamen (Text nach «Besuch» im Termin) und einem QR-Code fürs Gäste-WLAN, ohne Netzname und Passwort als Text; der Rest von «Heute» bleibt; ein Modul ist eine ganze Zahl Gerätepixel, damit der Code auf E-Ink scharf und lesbar bleibt (im Test aus dem Kindle-PNG zurückgelesen).
 - **Geburtstage** (`BIRTHDAYS`, Datum `MM-TT`, nach Zürcher Datum): Banner mit Kuchen über den Terminen in «Heute» (zwei Terminzeilen hoch, im Abendmodus kompakt eine Zeile) und auf dem Nachtbildschirm für den Tag, in den die Nacht führt.
 - **Aufgaben** (`BRING_TASKS_LIST`): zweite `BringSource` mit wörtlichen Namen (`verbatimNames`, kein Artikelkatalog). In «Heute» die neueste offene Aufgabe in einer Box (weiss auf schwarz) über den Terminen (kostet eine Zeile, weitere als «+ N»); Antippen erledigt sie ohne «Rückgängig». «+ Aufgabe» im ersten Abschnittstitel öffnet «Hinzufügen» im Reiter «Aufgabe» (2 Spalten, feste Vorschläge nach den zuletzt erledigten). Abends am Geburtstag mit Aufgaben bleibt Platz für nur einen Abschnitt.
+- **Dienstplan** (`ROSTER_TOKEN`, `ROSTER_NAME`): Der Plan ist ein Excel-Export als PDF (Tageszeile «1. 2. 3. …», je Person eine Zeile mit Beginn und Ende). Gelesen wird deterministisch über Positionen, ohne Sprachmodell: Monat und Jahr aus dem Kopf, Spalten aus der Tageszeile, die Zeile der Person über den Namen, je Spalte zwei Zeiten = Dienst (Ende vor Beginn = endet am Folgetag), Freikürzel oder leer = frei, alles andere = Fehler mit Datum. Schule ist die Zellfarbe Blau (`#00b0f0`); fehlen Farben im Band, gilt 07:30–16:25 als Schule. Bei jedem Fehler wird nichts übernommen und der alte Plan bleibt. Ein neuer Plan ersetzt den ganzen Monat. Das PDF wird nicht aufbewahrt. **Losfahrzeit** = Beginn − Puffer (`ROSTER_BUFFER_WORK` 5, `ROSTER_BUFFER_SCHOOL` 10 Min.) − Fahrzeit − Fussweg (`COMMUTE_WALK_MINUTES`), auf die Minute abgerundet. Bis 30 Min. vor der Losfahrzeit fragt der Server HERE mit `departureTime` (üblicher Verkehr zu jener Zeit, auf 5 Min. gerundet für den Cache), danach live. Die Zeile zeigt «Arbeit 13:30 · los 12:58 · 22 Min.», nach der Losfahrzeit «los sofort», ab Dienstbeginn nichts. Die Vorschau «Heute mit Dienst (Beispiel, …)» erfindet einen Dienst in ein bis zwei Stunden, unabhängig vom Plan.
 - **«Dringend»:** Bring! speichert es als Attribut `PURCHASE_CONDITIONS` (`urgent`, daneben `convenient`, `discounted`); gesetzt wird es mit `ATTRIBUTE_UPDATE` wie in der App, die beiden anderen Werte bleiben erhalten. Dringende Artikel stehen in «Einkauf» zuerst (schwarze Kachel) und im Widget fett mit rennendem Mann; dringende Aufgaben kommen in der Box zuerst. Jede Kachel hat rechts eine eigene Tippfläche (`urgent:`), der Rest hakt ab.
 - **Seiten in «Einkauf»:** 10 Artikel pro Seite, darunter «Hinzufügen» und der Paginator; die Seitengrösse ist fest, damit beim Erscheinen der Meldung keine Kachel auf die nächste Seite springt. Die Seite steht im Gerätezustand, wird beim Öffnen auf 1 gesetzt und beim Anzeigen auf die vorhandenen Seiten begrenzt (Abhaken des letzten Artikels einer Seite).
 - Die Vorschau rendert mit eigenem Kontext (Zeit, Haltestelle, Gast-Modus) und verändert den Zustand nie.
@@ -405,7 +440,7 @@ flowchart LR
 
 ### 8.5 Sicherheit
 
-- Gerät: Bearer-Token (256 Bit), verglichen in konstanter Zeit; Vorschau: Basic Auth, nach 20 falschen Passwörtern 15 Minuten gesperrt (global, da alle Anfragen über den Proxy kommen; der Kindle ist nicht betroffen).
+- Gerät: Bearer-Token (256 Bit), verglichen in konstanter Zeit; Dienstplan-Upload mit eigenem `ROSTER_TOKEN` (mindestens 24 Zeichen), Antwort bei falschem Token ohne Hinweis, Körper höchstens 2 MB, Prüfung auf PDF-Kopf; Name und Pläne nur in Coolify bzw. im Volume, das echte PDF nie im Repository (Tests mit anonymisierter Fixture); Vorschau: Basic Auth, nach 20 falschen Passwörtern 15 Minuten gesperrt (global, da alle Anfragen über den Proxy kommen; der Kindle ist nicht betroffen).
 - Geheimnisse nur in Umgebungsvariablen bzw. `config.json` auf dem Gerät; Fehlermeldungen der Konfiguration nennen nur Feld und Index, nie den Wert; Logs entfernen Adressen (mögliche iCal-Pfade).
 - Eingaben: Taps nach Schema geprüft (Ganzzahlen im Bildschirmbereich); Texte aus Quellen werden als Text gerendert (Preact maskiert), der Renderer blockiert zusätzlich jeden Netzwerkzugriff der gerenderten Seite.
 - HTTP-Sicherheitsheader (HSTS, nosniff, kein Einbetten, kein Referrer; CSP und `no-store` für die Vorschau).
@@ -456,11 +491,16 @@ flowchart LR
 | 24 | **Ladestand per Header** bei jeder Bildabfrage, Anzeige und Push erst ab 20 % | Der Server kennt den Zustand ohne eigenen Kanal; volle Akkus stören das Bild nicht | Älterer Client schickt nichts, dann bleibt die Anzeige aus |
 | 25 | **WLAN in der Nachtruhe aus** statt Ruhezustand (Suspend) | Am Gerät getestet: wieder verbunden nach 6 s; Suspend hätte Touch abgeschaltet und ist mit angehaltener Oberfläche ungetestet | Ein Tap in der Nacht wartet einige Sekunden; der Prozessor bleibt wach |
 | 26 | **Begrüssung im Terminbereich statt geschwärzter Termine** bei konfiguriertem Gäste-WLAN, QR-Code auf dem Server erzeugt | Gäste sehen, was sie brauchen; Namen kommen ohne Pflege aus dem «Besuch»-Termin; QR-Bibliothek ohne Abhängigkeiten | Während eines Besuchs sind die Termine des Tages nur in der Vorschau sichtbar; das Passwort steckt nur im QR-Code, nicht als Text |
-| 27 | **Status-Seite ohne Speicher und ohne Skripte** | Kein Volume nötig; die strenge CSP der Vorschau bleibt; Tooltips über SVG-`<title>` | Verlauf beginnt nach jedem Deployment neu; höchstens 7 Tage |
+| 27 | **Status-Seite ohne Speicher und ohne Skripte** | Kein Volume nötig; die strenge CSP der Vorschau bleibt; Tooltips über SVG-`<title>` | Abfragen und Datenquellen beginnen nach jedem Deployment neu; die Akkukurve (höchstens 7 Tage) liegt seit Entscheidung 34 auf dem Volume |
 | 28 | **Roller-Fahrzeit über HERE** (Modus `scooter`) statt Google oder TomTom; Zeile über den Abfahrten, Verzögerung gegen die übliche Fahrzeit zur Tageszeit | Einziger Dienst mit eigenem Roller-Modus und Autobahn-Schalter für 125 cm³; grosszügiges Gratiskontingent | Kostet eine Terminzeile; Start und Ziel nur in Coolify; Trennlinien auf 3 px verschmälert, damit das Bild ruhiger bleibt |
 | 29 | **«Tag starten» per Tipp auf den Nachtbildschirm**, gültig bis zum Ende dieser Nachtruhe; Grüsse nachts erst ab Mitternacht; Mondphase lokal berechnet | Wer früher aufsteht, will nicht die Konfiguration ändern; ein Gruss für morgen um 22 Uhr wirkt verfrüht; keine weitere Datenquelle | Ein versehentlicher Tipp weckt das Dashboard bis zum Morgen (WLAN an); der Schalter liegt nur im Arbeitsspeicher |
 | 30 | **Karte «Arbeitsweg»: Hintergrund von HERE, Route und Stau als eigenes SVG** statt der Verkehrsebene eines Kartendienstes | Rot/Gelb/Grün wird in 16 Graustufen zu Grau; Dicke und Strichart bleiben lesbar; der Renderer blockiert jedes Netz, darum kommt die Karte als `data:`-URL; `ppi=200` vergrössert nur die Schrift, nicht den Massstab | Stau nur auf der eigenen Route, nicht auf Nebenstrassen; die Projektion (Web Mercator, 256-px-Kacheln) muss zum Kartenbild passen |
 | 31 | **Schule als zweites Ziel** mit gleichem Start: in «Heute» nach Trennlinie ein Symbol pro Ziel, ohne Ankunftszeit; in «Arbeitsweg» Reiter | Zwei Ziele mit Text und Ankunft sprengen die Zeile (gemessen: über 300 Layout-Pixel zu breit); Symbole und Kürzel wie im Kalender sagen ohne Text, wessen Weg es ist | Ankunft nur auf der Karte; an Schultagen (`COMMUTE_SCHOOL_DAYS`, Standard Mo–Fr) doppelt so viele HERE-Abfragen, an den anderen Tagen keine für die Schule (die Karte behält beide Reiter); das Kürzel steht direkt nach dem Roller und nur in Coolify |
+
+| 32 | **Dienstplan per iOS-Kurzbefehl direkt an den Server** (`POST /dienstplan`) statt über ntfy oder WhatsApp | Das PDF liegt nie bei Dritten; Antwort mit Zusammenfassung sofort auf dem iPhone; WhatsApp-Anbindung scheidet aus (Entscheidung 17) | Eigener Token; Kurzbefehl einmal von Hand anlegen; ohne `ROSTER_TOKEN` gibt es die Route nicht |
+| 33 | **PDF über Positionen lesen** (pdfjs-dist, Wörter und gefüllte Rechtecke), kein Sprachmodell; Schule an der Zellfarbe | Deterministisch, kostenlos, offline, ohne dass der Plan an einen Dritten geht; Parser rein und ohne PDF testbar | Bricht, wenn sich das Layout der Excel-Vorlage ändert; dann meldet der Upload den Grund und der alte Plan bleibt |
+| 34 | **Zustand auf einem Volume** (`STATE_DIR`: Dienstpläne und Akkukurve als JSON, über temporäre Datei und `rename`) | Pläne müssen Deployments überstehen; die Akkukurve ebenso, sonst beginnt sie nach jedem Deploy neu (löst die Einschränkung aus Entscheidung 27) | Ein Volume in Coolify nötig; ohne warnt der Server (Log, Antwort, Statusseite). Gast-Schalter und Gerätezustand bleiben im Arbeitsspeicher |
+| 35 | **Losfahrzeit mit üblichem Verkehr zur Abfahrtszeit**, ab 30 Min. vorher live | Eine Stunde vorher sagt der Live-Verkehr wenig über die Fahrt zur Losfahrzeit; kurz davor zählt er | Die erste Schätzung nimmt die Live-Fahrzeit, danach wird sie nachgeführt; zusätzliche HERE-Abfragen (Cache 15 Min.) |
 
 ---
 
@@ -528,6 +568,9 @@ mindmap
 | Ausfall des Kindle | Eingefrorenes Bild fiel früher erst beim Hinsehen auf | Benachrichtigung über ntfy (`NTFY_TOPIC`) |
 | Akku bei Dauerbetrieb ohne Netzteil | Gerät schaltet ab | Netzteil; ab 20 % Akkuanzeige im Kopf und Push über ntfy |
 | Bring! ändert die Operation für «Dringend» | Umschalten schlägt fehl (Bildschirm blinkt), Anzeige bleibt | Erneut mit einem Testartikel prüfen, Anpassung nach Vorbild bring-api |
+| Dienstplan-Layout ändert sich (neue Excel-Vorlage, andere Farben) | Upload meldet «nicht erkannt» oder liest falsche Zeiten | Strenge Prüfungen (Tageszahl, Name, ein Dienst pro Tag); bisheriger Plan bleibt; Parser mit Fixture getestet, nach einem neuen Layout anpassen |
+| Kein Volume auf `/app/state` | Dienstplan und Akkukurve gehen beim Deploy verloren | Warnung im Log, in der Upload-Antwort und auf der Statusseite; Volume in Coolify einrichten |
+| Kurzbefehl-Token auf dem iPhone | Wer ihn hat, kann Pläne ersetzen | Eigener Token nur für diese Route, in Coolify rotierbar; Kindle und Vorschau sind davon getrennt |
 | Gast-Schalter nur im Arbeitsspeicher | Von Hand eingeschalteter Gast-Modus ist nach einem Deployment aus | «Besuch»-Termine greifen weiter; bei Bedarf Zustand auf ein Volume schreiben |
 
 ---
@@ -546,6 +589,9 @@ mindmap
 | **Overlay** | Ansicht ohne Tab mit «Schliessen» (Hinzufügen, Haltestelle, Wetter, Arbeitsweg) |
 | **pillow** | Statusleiste der Kindle-Oberfläche |
 | **SIRI-SX** | Standard für ÖV-Ereignismeldungen |
+| **Dienstplan** | Monatlicher Plan als PDF; liefert Dienste («Arbeit», «Schule») und freie Tage für eine Person |
+| **Losfahrzeit** | Dienstbeginn minus Puffer, Fahrzeit und Fussweg, auf die Minute abgerundet («los 12:58») |
+| **STATE_DIR** | Verzeichnis für dauerhaften Zustand (Dienstpläne, Akkukurve), in Coolify ein Volume |
 | **Dringend** | Markierung eines Artikels in Bring! («Purchase condition» `urgent`) |
 | **Gast-Modus** | Termintitel als Balken, solange Besuch da ist |
 | **Langdruck (Hold)** | Berührung über 1,2 s ohne Bewegung, ausserhalb der Ecke zum Beenden |

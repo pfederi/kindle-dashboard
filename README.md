@@ -80,8 +80,10 @@ Der Kindle ist ein «dummer» Bildschirm: Er zeigt nur Bilder an und meldet, wo 
 ```
 client/   Kindle-Programm (Go) und Startskripte
 server/   Render-Server (TypeScript)
-docs/     Spezifikation, Pläne, Bildschirmfotos
+docs/     Architektur (arc42), Spezifikation, Pläne, Bildschirmfotos
 ```
+
+Einzig dauerhafter Zustand auf dem Server ist das Volume `STATE_DIR` (Dienstpläne, Akkukurve); alles andere liegt im Arbeitsspeicher oder kommt aus den Datenquellen.
 
 ## Server einrichten
 
@@ -257,9 +259,10 @@ Gerätedetails und Erkenntnisse vom Testen stehen in [`client/DEVICE_FACTS.md`](
 ## Sicherheit
 
 - **Zugang:** Der Kindle meldet sich mit einem zufälligen 256-Bit-Token, die Vorschau mit Benutzer `admin` und Passwort; beides wird in konstanter Zeit verglichen. Nach 20 falschen Vorschau-Passwörtern sperrt der Server die Vorschau für 15 Minuten.
-- **Geheimnisse** (Token, Passwort, iCal-Adressen, Bring!-Zugang, ntfy-Thema, Gäste-WLAN-Passwort, HERE-Schlüssel, Start und Ziel der Roller-Fahrt) stehen nur in Coolify bzw. in `config.json` auf dem Kindle – nie im Repository und nie in Logs. In Coolify bei diesen Variablen **keinen** Haken bei «Build Variable» setzen.
+- **Geheimnisse** (Token, Passwort, iCal-Adressen, Bring!-Zugang, ntfy-Thema, Gäste-WLAN-Passwort, HERE-Schlüssel, Start und Ziel der Roller-Fahrt, `ROSTER_TOKEN` und `ROSTER_NAME`) stehen nur in Coolify bzw. in `config.json` auf dem Kindle – nie im Repository und nie in Logs. In Coolify bei diesen Variablen **keinen** Haken bei «Build Variable» setzen.
 - **Transport:** HTTPS mit Let's Encrypt, HSTS; der Kindle prüft Zertifikate mit eigener CA-Liste und mindestens TLS 1.2.
 - **Server:** Container ohne root-Rechte; Taps werden geprüft; gerenderte Seiten haben keinen Netzzugriff; Sicherheitsheader und für die Vorschau eine strenge Content-Security-Policy, kein Caching.
+- **Dienstplan:** `POST /dienstplan` hat einen eigenen Token (`ROSTER_TOKEN`), getrennt von Kindle und Vorschau; falsch oder fehlend gibt 401 ohne Hinweis, die Datei ist auf 2 MB und PDF begrenzt. Das PDF wird nicht aufbewahrt, nur die ausgelesenen Dienste liegen im Volume. Token verloren? In Coolify ein neues setzen und den Kurzbefehl anpassen.
 - **Kindle verloren?** In Coolify ein neues `DEVICE_TOKEN` setzen – das alte ist sofort wertlos.
 
 ## Entwicklung
@@ -271,7 +274,7 @@ cd server
 npm install
 npx playwright install chromium
 DEVICE_TOKEN=dev PREVIEW_PASSWORD=dev npm run dev   # http://localhost:3000/preview
-npm test            # Vitest, rund 300 Tests
+npm test            # Vitest, rund 420 Tests
 npm run typecheck
 npm run screenshots # Bilder in docs/screenshots aus Beispieldaten neu erzeugen
 ```
@@ -304,6 +307,7 @@ Go 1.23, gebaut und getestet in Docker (`make test`, `make build`). Ein statisch
 | Papier- und Kartonsammlung | [OpenERZ](https://openerz.metaodi.ch) (Entsorgung + Recycling Zürich) |
 | Einkaufsliste | Bring! (inoffizielle API der Apps, wie [bring-api](https://github.com/miaucl/bring-api)) |
 | Termine | iCal-Adressen der Kalender |
+| Dienstplan | PDF per iPhone-Kurzbefehl, gelesen mit [pdf.js](https://mozilla.github.io/pdf.js/) (`pdfjs-dist`) |
 | Roller-Fahrzeit | [HERE Routing API v8](https://www.here.com/docs/bundle/routing-api-developer-guide-v8/page/README.html), Modus `scooter` mit Echtzeitverkehr |
 | Karte «Arbeitsweg» | [HERE Map Image API v3](https://docs.here.com/map-rendering/docs/introduction-map-image-api), Stil `lite.day`; Route und Stau zeichnet der Server selbst |
 | Symbole | [Lucide](https://lucide.dev); rennender Mann aus [Tabler Icons](https://tabler.io/icons) (MIT) |
