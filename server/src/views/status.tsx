@@ -106,7 +106,7 @@ function Status({ m }: { m: StatusModel }) {
     <main>
       <h1>Dashboard-Status</h1>
       <p class="muted">
-        Stand {dateTime(m.now)} · Server läuft seit {dateTime(m.startedAt)}; alle Werte seit dann (nach einem Deployment beginnt die Aufzeichnung neu).
+        Stand {dateTime(m.now)} · Server läuft seit {dateTime(m.startedAt)}; Abfragen und Datenquellen seit dann (nach einem Deployment beginnt ihre Aufzeichnung neu), der Ladestand bleibt über Deployments erhalten (Volume auf /app/state).
       </p>
 
       <h2>Kindle</h2>

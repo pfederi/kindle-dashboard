@@ -176,11 +176,16 @@ describe('loadConfig', () => {
   it('turns the roster on with token and name; buffers, badge and directory have defaults', () => {
     expect(loadConfig(base).roster).toBeNull();
     const token = 'r'.repeat(24);
-    expect(loadConfig({ ...base, ROSTER_TOKEN: token, ROSTER_NAME: ' Robin ' }).roster).toEqual({ token, name: 'Robin', buffers: { work: 5, school: 10 }, badge: 'RO', dir: '/app/state' });
+    expect(loadConfig({ ...base, ROSTER_TOKEN: token, ROSTER_NAME: ' Robin ' }).roster).toEqual({ token, name: 'Robin', buffers: { work: 5, school: 10 }, badge: 'RO' });
     expect(loadConfig({ ...base, ROSTER_TOKEN: token, ROSTER_NAME: 'Robin', COMMUTE_BADGE: 'LE' }).roster?.badge).toBe('LE');
     expect(
-      loadConfig({ ...base, ROSTER_TOKEN: token, ROSTER_NAME: 'Robin', ROSTER_BADGE: 'RB', ROSTER_BUFFER_WORK: '0', ROSTER_BUFFER_SCHOOL: '15', ROSTER_DIR: './state' }).roster,
-    ).toMatchObject({ badge: 'RB', buffers: { work: 0, school: 15 }, dir: './state' });
+      loadConfig({ ...base, ROSTER_TOKEN: token, ROSTER_NAME: 'Robin', ROSTER_BADGE: 'RB', ROSTER_BUFFER_WORK: '0', ROSTER_BUFFER_SCHOOL: '15' }).roster,
+    ).toMatchObject({ badge: 'RB', buffers: { work: 0, school: 15 } });
+  });
+
+  it('keeps state (roster, battery curve) in STATE_DIR, /app/state by default', () => {
+    expect(loadConfig(base).stateDir).toBe('/app/state');
+    expect(loadConfig({ ...base, STATE_DIR: ' ./state ' }).stateDir).toBe('./state');
   });
 
   it('refuses a short token, a missing or two-word name and odd buffers', () => {

@@ -75,8 +75,6 @@ export interface RosterConfig {
   buffers: ShiftBuffers;
   /** Abbreviation of the duties in the calendar. */
   badge: string;
-  /** Where the read plans are kept (a volume in Coolify). */
-  dir: string;
 }
 
 export interface BringConfig {
@@ -110,6 +108,8 @@ export interface Config {
   commute: CommuteConfig | null;
   /** Duty roster upload; null unless ROSTER_TOKEN is set. */
   roster: RosterConfig | null;
+  /** What survives a deploy (duty rosters, battery curve): a volume in Coolify. */
+  stateDir: string;
 }
 
 export const DEFAULT_STATIONS: StationConfig[] = [
@@ -274,7 +274,6 @@ function roster(env: Env): RosterConfig | null {
     name,
     buffers: { work: minutes(env, 'ROSTER_BUFFER_WORK', DEFAULT_BUFFERS.work), school: minutes(env, 'ROSTER_BUFFER_SCHOOL', DEFAULT_BUFFERS.school) },
     badge: badge(env, 'ROSTER_BADGE') || badge(env, 'COMMUTE_BADGE') || name.slice(0, 2).toUpperCase(),
-    dir: env.ROSTER_DIR?.trim() || '/app/state',
   };
 }
 
@@ -363,6 +362,7 @@ export function loadConfig(env: Env): Config {
     guestWifi: guestWifi(env),
     commute: commute(env),
     roster: roster(env),
+    stateDir: env.STATE_DIR?.trim() || '/app/state',
     viewResetSeconds: int(env, 'VIEW_RESET_SECONDS', 120),
   };
 }

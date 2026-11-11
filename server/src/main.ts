@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { buildApp } from './app.js';
 import { TtlCache } from './cache.js';
 import { systemClock } from './clock.js';
@@ -7,7 +8,7 @@ import { startOfWeek } from './format.js';
 import { BatteryMonitor, KindleMonitor, ntfySender } from './monitor.js';
 import { refreshSeconds } from './state.js';
 import { sourceHealth } from './health.js';
-import { DeviceStatus } from './status.js';
+import { BatteryFile, DeviceStatus } from './status.js';
 import { statusHtml } from './views/status.js';
 import { PlaywrightRenderer } from './render/renderer.js';
 import { closeAll } from './shutdown.js';
@@ -95,12 +96,13 @@ async function main(): Promise<void> {
 
   // Duty roster from the iOS shortcut (optional, ROSTER_TOKEN): calendar entries and the leave time.
   const rosterConfig = config.roster;
-  const rosterStore = rosterConfig ? new RosterStore(rosterConfig.dir) : null;
+  const rosterStore = rosterConfig ? new RosterStore(config.stateDir) : null;
   rosterStore?.load();
-  if (rosterStore && !rosterStore.persistent()) console.warn(`[roster] ${rosterConfig?.dir} is not a volume: uploaded plans are lost on the next deploy`);
+  if (rosterStore && !rosterStore.persistent()) console.warn(`[roster] ${config.stateDir} is not a volume: uploaded plans are lost on the next deploy`);
   const calendarSource = new CalendarSource(config.calendars, fetchFn, clock);
 
-  const status = new DeviceStatus(clock);
+  // The battery curve lives on the state volume too, so a deploy does not wipe it.
+  const status = new DeviceStatus(clock, new BatteryFile(join(config.stateDir, 'battery.json')));
   const renderer = await PlaywrightRenderer.launch();
   const dashboard = new Dashboard({
     sources: {

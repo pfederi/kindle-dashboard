@@ -1,5 +1,8 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DeviceStatus } from '../src/status.js';
+import { BatteryFile, DeviceStatus } from '../src/status.js';
 import { statusHtml } from '../src/views/status.js';
 import { testClock } from './helpers.js';
 
@@ -30,6 +33,35 @@ describe('DeviceStatus', () => {
   });
 });
 
+describe('battery curve in a file', () => {
+  const file = () => join(mkdtempSync(join(tmpdir(), 'battery-')), 'battery.json');
+
+  it('survives a restart, seven days back', () => {
+    const path = file();
+    const clock = testClock('2026-11-06T20:00:00+01:00');
+    const a = new DeviceStatus(clock, new BatteryFile(path));
+    a.battery({ level: 90, charging: false });
+    clock.advance(3600_000);
+    a.battery({ level: 85, charging: true });
+    expect(new DeviceStatus(clock, new BatteryFile(path)).history()).toEqual(a.history());
+    clock.advance(7 * 24 * 3600_000 - 30 * 60_000); // the first sample is now older than seven days
+    expect(new DeviceStatus(clock, new BatteryFile(path)).history().map((s) => s.level)).toEqual([85]);
+  });
+
+  it('starts empty from a missing or broken file, and keeps counting when it cannot write', () => {
+    const clock = testClock('2026-11-06T20:00:00+01:00');
+    const broken = file();
+    writeFileSync(broken, '{kaputt');
+    expect(new DeviceStatus(clock, new BatteryFile(broken)).history()).toEqual([]);
+    const odd = file();
+    writeFileSync(odd, JSON.stringify([{ at: 'gestern', level: 5, charging: false }, { at: '2026-11-06T19:00:00+01:00', level: 'voll', charging: false }]));
+    expect(new DeviceStatus(clock, new BatteryFile(odd)).history()).toEqual([]);
+    const s = new DeviceStatus(clock, new BatteryFile(join(tmpdir(), 'battery-missing-dir', 'nope', 'battery.json')));
+    expect(() => s.battery({ level: 50, charging: false })).not.toThrow();
+    expect(s.history()).toHaveLength(1);
+  });
+});
+
 describe('status page', () => {
   const now = new Date('2026-11-06T21:00:00+01:00');
   const base = { now, startedAt: new Date('2026-11-06T08:00:00+01:00'), lastSeen: null, nextDue: null, battery: [], sources: [] };
@@ -38,6 +70,7 @@ describe('status page', () => {
     const html = statusHtml(base);
     expect(html).toContain('noch keine seit dem Serverstart');
     expect(html).toContain('Noch keine Werte.');
+    expect(html).toContain('der Ladestand bleibt über Deployments erhalten');
     expect(html).not.toContain('<script');
   });
 

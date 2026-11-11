@@ -123,7 +123,7 @@ Der Server läuft als Docker-Container, z. B. in [Coolify](https://coolify.io).
 | `ROSTER_NAME` | | Name am Anfang der Zeile im Dienstplan (ein Wort); nur in Coolify |
 | `ROSTER_BUFFER_WORK`, `ROSTER_BUFFER_SCHOOL` | | So viele Minuten vor Beginn da sein, Standard `5` (Arbeit) und `10` (Schule) |
 | `ROSTER_BADGE` | | Kürzel der Dienste im Kalender, Standard `COMMUTE_BADGE`, sonst die ersten zwei Buchstaben des Namens |
-| `ROSTER_DIR` | | Ablage der gelesenen Pläne, Standard `/app/state`; in Coolify als Volume einbinden (lokal z. B. `./state`) |
+| `STATE_DIR` | | Was einen Deploy überstehen soll (gelesene Dienstpläne, Akkukurve), Standard `/app/state`; in Coolify als Volume einbinden (lokal z. B. `./state`) |
 | `QUIET_HOURS` | | Nachtruhe mit Nachtbildschirm, ohne Aktualisierung und mit ausgeschaltetem WLAN (spart Akku), Standard `00:00-05:30`, über Mitternacht möglich (z. B. `22:30-06:00`); leer = aus |
 | `NTFY_TOPIC` | | Push-Benachrichtigung über [ntfy](https://ntfy.sh), wenn der Kindle sich nicht mehr meldet oder der Akku fast leer ist: ein schwer erratbarer Name, z. B. `kindle-` + 12 zufällige Zeichen |
 | `NTFY_SERVER` | | ntfy-Server, Standard `https://ntfy.sh` |
@@ -236,7 +236,7 @@ Während das Dashboard läuft, ist die Kindle-Oberfläche nur angehalten, nicht 
 
 `https://kindle.example.ch/preview` (Benutzer `admin`, Passwort `PREVIEW_PASSWORD`) listet alle Ansichten – als Webseite und als PNG genau so, wie es der Kindle bekommt. Darunter auch «Heute am Abend» und «Heute in der Nacht», um Abendmodus und Nachtbildschirm tagsüber zu sehen, «Nachtbildschirm: Mondphasen und Feiertage» (`/preview/nacht`) mit allen acht Phasen und jedem Feiertag, «Heute/Woche mit Gästen» für den Gast-Modus, und jede Haltestelle. Die Vorschau zeigt echte Daten und verändert den Zustand des Kindle nicht.
 
-Ganz oben steht **Status** (`/preview/status`): letzte und nächste Abfrage des Kindle (mit «überfällig»), der aktuelle Ladestand, eine Akkukurve der letzten 7 Tage mit den Ladezeiten, und für jede Datenquelle den letzten Erfolg und den letzten Fehler. Alles liegt nur im Arbeitsspeicher und beginnt nach einem Deployment neu.
+Ganz oben steht **Status** (`/preview/status`): letzte und nächste Abfrage des Kindle (mit «überfällig»), der aktuelle Ladestand, eine Akkukurve der letzten 7 Tage mit den Ladezeiten, und für jede Datenquelle den letzten Erfolg und den letzten Fehler. Abfragen und Datenquellen liegen nur im Arbeitsspeicher und beginnen nach einem Deployment neu; die Akkukurve liegt in `STATE_DIR` (`battery.json`) und bleibt mit einem Volume erhalten.
 
 ## Fehlersuche
 
