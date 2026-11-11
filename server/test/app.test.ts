@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildApp, type DashboardLike, PREVIEW_LOCK_MS, PREVIEW_MAX_FAILURES } from '../src/app.js';
+import { buildApp, type DashboardLike, PREVIEW_LOCK_MS, PREVIEW_MAX_FAILURES, ROSTER_MAX_BYTES } from '../src/app.js';
 
 const screen = { png: Buffer.from('PNG'), etag: '"abc"', refreshSeconds: 120, fullRefresh: true };
 
@@ -208,5 +208,40 @@ describe('HTTP API', () => {
     const { app: a } = app({ screen: vi.fn(async () => { throw 'boom https://secret'; }) });
     const res = await a.inject({ method: 'GET', url: '/screen.png', headers: bearer });
     expect([res.statusCode, res.json()]).toEqual([500, { error: 'internal error' }]);
+  });
+
+  describe('POST /dienstplan', () => {
+    const token = 'roster-token-roster-token';
+    const withRoster = () => {
+      const receive = vi.fn(async () => ({ status: 200, text: 'November 2026: 10× Arbeit' }));
+      const dashboard: DashboardLike = { screen: vi.fn(), tap: vi.fn(), previewHtml: vi.fn(), previewPng: vi.fn() };
+      return { receive, a: buildApp({ dashboard, deviceToken: 'device-token', previewPassword: 'pw', roster: { token, receive } }) };
+    };
+    const post = (a: ReturnType<typeof buildApp>, headers: Record<string, string>, payload: Buffer | string = Buffer.from('%PDF-1.7')) =>
+      a.inject({ method: 'POST', url: '/dienstplan', headers, payload });
+
+    it('is not there without a token configured', async () => {
+      expect((await post(app().app, { authorization: `Bearer ${token}`, 'content-type': 'application/pdf' })).statusCode).toBe(404);
+    });
+
+    it('takes the PDF with the token and answers in plain text', async () => {
+      const { a, receive } = withRoster();
+      const res = await post(a, { authorization: `Bearer ${token}`, 'content-type': 'application/pdf' });
+      expect([res.statusCode, res.headers['content-type'], res.body]).toEqual([200, 'text/plain; charset=utf-8', 'November 2026: 10× Arbeit']);
+      expect(Buffer.isBuffer(receive.mock.calls[0]![0])).toBe(true);
+      // Some versions of Shortcuts send the file as octet-stream.
+      expect((await post(a, { authorization: `Bearer ${token}`, 'content-type': 'application/octet-stream' })).statusCode).toBe(200);
+    });
+
+    it('refuses a wrong token before reading, other types and files over 2 MB', async () => {
+      const { a, receive } = withRoster();
+      expect((await post(a, { authorization: 'Bearer device-token', 'content-type': 'application/pdf' })).statusCode).toBe(401);
+      expect((await post(a, { 'content-type': 'application/pdf' })).statusCode).toBe(401);
+      expect(receive).not.toHaveBeenCalled();
+      expect((await post(a, { authorization: `Bearer ${token}`, 'content-type': 'text/plain' }, 'hallo')).statusCode).toBe(415);
+      expect((await post(a, { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, '{}')).statusCode).toBe(415);
+      expect((await post(a, { authorization: `Bearer ${token}`, 'content-type': 'application/pdf' }, Buffer.alloc(ROSTER_MAX_BYTES + 1))).statusCode).toBe(413);
+      expect(receive).not.toHaveBeenCalled();
+    });
   });
 });

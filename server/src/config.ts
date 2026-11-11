@@ -1,3 +1,5 @@
+import { DEFAULT_BUFFERS, type ShiftBuffers } from './roster/shift.js';
+
 export interface CalendarConfig {
   label: string;
   url: string;
@@ -63,6 +65,20 @@ export interface CommuteConfig {
   destinations: CommuteDestination[];
 }
 
+/** Duty roster PDFs sent by an iOS shortcut; the duties go to the calendar and the scooter line. */
+export interface RosterConfig {
+  /** Bearer token of the shortcut. */
+  token: string;
+  /** The name heading the person's row in the plan. */
+  name: string;
+  /** Minutes to be there before work and school. */
+  buffers: ShiftBuffers;
+  /** Abbreviation of the duties in the calendar. */
+  badge: string;
+  /** Where the read plans are kept (a volume in Coolify). */
+  dir: string;
+}
+
 export interface BringConfig {
   email: string;
   password: string;
@@ -92,6 +108,8 @@ export interface Config {
   guestWifi: GuestWifi | null;
   /** Scooter travel time above the departures; null unless HERE_API_KEY, COMMUTE_FROM and COMMUTE_TO are set. */
   commute: CommuteConfig | null;
+  /** Duty roster upload; null unless ROSTER_TOKEN is set. */
+  roster: RosterConfig | null;
 }
 
 export const DEFAULT_STATIONS: StationConfig[] = [
@@ -229,6 +247,37 @@ export function weekdays(key: string, raw: string): number[] {
   return [...days].sort((x, y) => x - y);
 }
 
+/** A calendar-like abbreviation, '' when not set. */
+function badge(env: Env, key: string): string {
+  const v = (env[key] ?? '').trim();
+  if (v !== '' && !/^[\p{L}\d]{1,4}$/u.test(v)) throw new Error(`${key} must be 1–4 letters or digits, like a calendar label`);
+  return v;
+}
+
+function minutes(env: Env, key: string, fallback: number): number {
+  const raw = (env[key] ?? '').trim();
+  if (raw === '') return fallback;
+  if (!/^\d{1,2}$/.test(raw) || Number(raw) > 60) throw new Error(`${key} must be whole minutes from 0 to 60`);
+  return Number(raw);
+}
+
+function roster(env: Env): RosterConfig | null {
+  const token = env.ROSTER_TOKEN?.trim();
+  if (!token) return null;
+  // The token alone guards the upload: long and random, like DEVICE_TOKEN.
+  if (!/^[A-Za-z0-9_-]{24,}$/.test(token)) throw new Error('ROSTER_TOKEN must be at least 24 letters, digits, - or _');
+  const name = env.ROSTER_NAME?.trim();
+  if (!name) throw new Error('ROSTER_NAME is required when ROSTER_TOKEN is set');
+  if (/\s/.test(name)) throw new Error('ROSTER_NAME must be one word, as at the start of the row in the plan');
+  return {
+    token,
+    name,
+    buffers: { work: minutes(env, 'ROSTER_BUFFER_WORK', DEFAULT_BUFFERS.work), school: minutes(env, 'ROSTER_BUFFER_SCHOOL', DEFAULT_BUFFERS.school) },
+    badge: badge(env, 'ROSTER_BADGE') || badge(env, 'COMMUTE_BADGE') || name.slice(0, 2).toUpperCase(),
+    dir: env.ROSTER_DIR?.trim() || '/app/state',
+  };
+}
+
 function commute(env: Env): CommuteConfig | null {
   const keys = ['HERE_API_KEY', 'COMMUTE_FROM', 'COMMUTE_TO'] as const;
   const set = keys.filter((k) => env[k]?.trim());
@@ -240,25 +289,20 @@ function commute(env: Env): CommuteConfig | null {
   const walk = (env.COMMUTE_WALK_MINUTES ?? '').trim();
   if (walk !== '' && !/^\d{1,2}$/.test(walk)) throw new Error('COMMUTE_WALK_MINUTES must be whole minutes from 0 to 99');
   const school = env.COMMUTE_SCHOOL_TO?.trim();
-  const badge = (key: string) => {
-    const v = (env[key] ?? '').trim();
-    if (v !== '' && !/^[\p{L}\d]{1,4}$/u.test(v)) throw new Error(`${key} must be 1–4 letters or digits, like a calendar label`);
-    return v;
-  };
   return {
     apiKey: env.HERE_API_KEY!.trim(),
     from: coords('COMMUTE_FROM', env.COMMUTE_FROM!),
     highway: highway === '1',
     walkMinutes: walk === '' ? 0 : Number(walk),
     destinations: [
-      { to: coords('COMMUTE_TO', env.COMMUTE_TO!), label: env.COMMUTE_LABEL?.trim() || 'Zur Arbeit', icon: 'work', badge: badge('COMMUTE_BADGE'), days: [0, 1, 2, 3, 4, 5, 6] },
+      { to: coords('COMMUTE_TO', env.COMMUTE_TO!), label: env.COMMUTE_LABEL?.trim() || 'Zur Arbeit', icon: 'work', badge: badge(env, 'COMMUTE_BADGE'), days: [0, 1, 2, 3, 4, 5, 6] },
       ...(school
         ? [
             {
               to: coords('COMMUTE_SCHOOL_TO', school),
               label: env.COMMUTE_SCHOOL_LABEL?.trim() || 'Schule',
               icon: 'school' as const,
-              badge: badge('COMMUTE_SCHOOL_BADGE'),
+              badge: badge(env, 'COMMUTE_SCHOOL_BADGE'),
               days: weekdays('COMMUTE_SCHOOL_DAYS', env.COMMUTE_SCHOOL_DAYS?.trim() || 'Mo-Fr'),
             },
           ]
@@ -318,6 +362,7 @@ export function loadConfig(env: Env): Config {
     ntfy: ntfy(env),
     guestWifi: guestWifi(env),
     commute: commute(env),
+    roster: roster(env),
     viewResetSeconds: int(env, 'VIEW_RESET_SECONDS', 120),
   };
 }

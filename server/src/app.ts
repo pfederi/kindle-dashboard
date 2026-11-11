@@ -54,6 +54,9 @@ export const PREVIEW_LOCK_MS = 15 * 60_000;
 /** No scripts, no external resources: preview pages only need inline styles, data fonts and inline SVG. */
 const PREVIEW_CSP = "default-src 'none'; style-src 'unsafe-inline'; font-src data:; img-src data:; frame-ancestors 'none'";
 
+/** Largest roster PDF taken (a month's plan has about 250 kB). */
+export const ROSTER_MAX_BYTES = 2 * 1024 * 1024;
+
 function safeEqual(a: string, b: string): boolean {
   const ha = createHash('sha256').update(a).digest();
   const hb = createHash('sha256').update(b).digest();
@@ -85,6 +88,8 @@ export function buildApp(opts: {
   onBattery?: (b: Battery) => void;
   /** The status page under /preview/status. */
   statusHtml?: () => string;
+  /** Duty roster upload from the iOS shortcut; absent = no route. */
+  roster?: { token: string; receive(pdf: Buffer): Promise<{ status: number; text: string }> };
   logger?: boolean;
   /** For tests. */
   now?: () => number;
@@ -104,11 +109,12 @@ export function buildApp(opts: {
     }
   });
 
-  const deviceAuth = async (req: FastifyRequest, reply: FastifyReply) => {
+  const bearerAuth = (expected: string) => async (req: FastifyRequest, reply: FastifyReply) => {
     const header = req.headers.authorization ?? '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-    if (!token || !safeEqual(token, opts.deviceToken)) return reply.code(401).send();
+    if (!token || !safeEqual(token, expected)) return reply.code(401).send();
   };
+  const deviceAuth = bearerAuth(opts.deviceToken);
 
   // Global, not per client: behind the proxy every request comes from the same address. A lockout
   // also locks out the owner for a while, which is acceptable for a preview.
@@ -171,6 +177,18 @@ export function buildApp(opts: {
       return s ? sendScreen(reply, s) : reply.code(204).send();
     },
   );
+
+  if (opts.roster) {
+    const roster = opts.roster;
+    // The shortcut sends the file as it is; some versions of Shortcuts call it octet-stream.
+    app.addContentTypeParser(['application/pdf', 'application/octet-stream'], { parseAs: 'buffer', bodyLimit: ROSTER_MAX_BYTES }, (_req, body, done) => done(null, body));
+    app.post('/dienstplan', { onRequest: bearerAuth(roster.token), bodyLimit: ROSTER_MAX_BYTES }, async (req, reply) => {
+      // Text and JSON have parsers of their own and arrive here as string or object.
+      if (!Buffer.isBuffer(req.body)) return reply.code(415).send();
+      const r = await roster.receive(req.body);
+      return reply.code(r.status).header('Content-Type', 'text/plain; charset=utf-8').send(r.text);
+    });
+  }
 
   app.get('/preview', { onRequest: previewAuth }, async (_req, reply) => reply.header('Content-Type', 'text/html; charset=utf-8').send(previewIndex(opts.stations ?? [], opts.commutes ?? [])));
 

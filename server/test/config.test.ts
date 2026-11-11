@@ -172,4 +172,23 @@ describe('loadConfig', () => {
     expect(st([null])).toThrow(/^STATIONS\[0\] must be an object$/);
     expect(loadConfig({ ...base, STATIONS: JSON.stringify([{ ...ok, lines: [] }]) }).stations[0]?.lines).toEqual([]);
   });
+
+  it('turns the roster on with token and name; buffers, badge and directory have defaults', () => {
+    expect(loadConfig(base).roster).toBeNull();
+    const token = 'r'.repeat(24);
+    expect(loadConfig({ ...base, ROSTER_TOKEN: token, ROSTER_NAME: ' Robin ' }).roster).toEqual({ token, name: 'Robin', buffers: { work: 5, school: 10 }, badge: 'RO', dir: '/app/state' });
+    expect(loadConfig({ ...base, ROSTER_TOKEN: token, ROSTER_NAME: 'Robin', COMMUTE_BADGE: 'LE' }).roster?.badge).toBe('LE');
+    expect(
+      loadConfig({ ...base, ROSTER_TOKEN: token, ROSTER_NAME: 'Robin', ROSTER_BADGE: 'RB', ROSTER_BUFFER_WORK: '0', ROSTER_BUFFER_SCHOOL: '15', ROSTER_DIR: './state' }).roster,
+    ).toMatchObject({ badge: 'RB', buffers: { work: 0, school: 15 }, dir: './state' });
+  });
+
+  it('refuses a short token, a missing or two-word name and odd buffers', () => {
+    const token = 'r'.repeat(24);
+    expect(() => loadConfig({ ...base, ROSTER_TOKEN: 'kurz', ROSTER_NAME: 'Robin' })).toThrow(/ROSTER_TOKEN must be at least 24/);
+    expect(() => loadConfig({ ...base, ROSTER_TOKEN: token })).toThrow(/ROSTER_NAME is required/);
+    expect(() => loadConfig({ ...base, ROSTER_TOKEN: token, ROSTER_NAME: 'Robin Muster' })).toThrow(/ROSTER_NAME must be one word/);
+    expect(() => loadConfig({ ...base, ROSTER_TOKEN: token, ROSTER_NAME: 'Robin', ROSTER_BUFFER_WORK: '61' })).toThrow(/ROSTER_BUFFER_WORK must be whole minutes from 0 to 60/);
+    expect(() => loadConfig({ ...base, ROSTER_TOKEN: token, ROSTER_NAME: 'Robin', ROSTER_BADGE: 'zu lang' })).toThrow(/ROSTER_BADGE must be 1–4 letters/);
+  });
 });
