@@ -275,7 +275,7 @@ describe('HTTP API', () => {
     expect(dashboard.previewHtml).toHaveBeenLastCalledWith('heute', expect.objectContaining({ shift: 'school' }));
     expect((await a.inject({ method: 'GET', url: '/preview/heute?dienst=nacht', headers: auth })).statusCode).toBe(400);
     const index = (await a.inject({ method: 'GET', url: '/preview', headers: auth })).body;
-    expect(index).toContain('Heute mit Dienst (Arbeit)');
-    expect(index).toContain('Heute mit Dienst (Schule)');
+    expect(index).toContain('Heute mit Dienst (Beispiel, Arbeit)');
+    expect(index).toContain('Heute mit Dienst (Beispiel, Schule)');
   });
 });

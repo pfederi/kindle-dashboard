@@ -160,7 +160,7 @@ Ein monatlicher Dienstplan als PDF (Excel-Export mit Tageszeile «1. 2. 3. …»
 2. Auf dem iPhone in «Kurzbefehle» einen neuen Kurzbefehl «Dienstplan senden» anlegen: in den Details «Im Share-Sheet anzeigen» einschalten, Eingabe nur «PDFs». Aktionen: «Inhalte von URL abrufen» mit der Adresse `https://<dashboard>/dienstplan`, Methode `POST`, Header `Authorization` = `Bearer <ROSTER_TOKEN>` und `Content-Type` = `application/pdf`, Anfragetext «Datei» = «Kurzbefehleingabe»; danach «Ergebnis anzeigen».
 3. In WhatsApp das PDF öffnen → Teilen → «Dienstplan senden». Die Antwort, z. B. «November 2026: 10× Arbeit, 9× Schule, 11× frei. Nächster Dienst: …», erscheint sofort und mit `NTFY_TOPIC` auch als Push. Ein neuer Plan für denselben Monat ersetzt den alten.
 
-Kann der Plan nicht gelesen werden, sagt die Antwort warum (z. B. «Name nicht gefunden»), und der bisherige Plan bleibt. Die Statusseite (`/preview/status`) zeigt die geladenen Monate und den letzten Fehler. Vorschau: «Heute mit Dienst (Arbeit)» bzw. «(Schule)».
+Kann der Plan nicht gelesen werden, sagt die Antwort warum (z. B. «Name nicht gefunden»), und der bisherige Plan bleibt. Die Statusseite (`/preview/status`) zeigt die geladenen Monate und den letzten Fehler. Vorschau: «Heute mit Dienst (Beispiel, Arbeit)» bzw. «(Beispiel, Schule)» zeigen einen erfundenen Dienst in ein bis zwei Stunden, unabhängig vom Plan; was der Kindle zeigt, steht in «Heute».
 
 ### Prüfen
 
