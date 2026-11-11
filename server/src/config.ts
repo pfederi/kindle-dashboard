@@ -95,6 +95,8 @@ export interface Config {
   calendars: CalendarConfig[];
   weather: { lat: number; lon: number };
   stations: StationConfig[];
+  /** opentransportdata.swiss API key for departures via OJP; null falls back to the transport.opendata.ch wrapper. */
+  opentransportdataKey: string | null;
   birthdays: BirthdayConfig[];
   bring: BringConfig | null;
   /** Zurich postcode for the paper/cardboard collection dates; '' turns them off. */
@@ -353,6 +355,7 @@ export function loadConfig(env: Env): Config {
     calendars: calendars(json<unknown>(env, 'CALENDARS', [])),
     weather: { lat: float(env, 'WEATHER_LAT', 47.411), lon: float(env, 'WEATHER_LON', 8.544) },
     stations: stations(json<unknown>(env, 'STATIONS', DEFAULT_STATIONS)),
+    opentransportdataKey: env.OPENTRANSPORTDATA_KEY?.trim() || null,
     birthdays: birthdays(json<unknown>(env, 'BIRTHDAYS', DEFAULT_BIRTHDAYS)),
     bring,
     wasteZip: wasteZip(env.WASTE_ZIP),

@@ -22,6 +22,7 @@ describe('loadConfig', () => {
     expect(c.ntfy).toBeNull();
     expect(c.viewResetSeconds).toBe(120);
     expect(c.wasteZip).toBe('8050');
+    expect(c.opentransportdataKey).toBeNull();
   });
 
   it('has no birthdays by default, takes BIRTHDAYS and validates it', () => {
@@ -195,5 +196,10 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...base, ROSTER_TOKEN: token, ROSTER_NAME: 'Robin Muster' })).toThrow(/ROSTER_NAME must be one word/);
     expect(() => loadConfig({ ...base, ROSTER_TOKEN: token, ROSTER_NAME: 'Robin', ROSTER_BUFFER_WORK: '61' })).toThrow(/ROSTER_BUFFER_WORK must be whole minutes from 0 to 60/);
     expect(() => loadConfig({ ...base, ROSTER_TOKEN: token, ROSTER_NAME: 'Robin', ROSTER_BADGE: 'zu lang' })).toThrow(/ROSTER_BADGE must be 1–4 letters/);
+  });
+
+  it('reads the opentransportdata.swiss key, trimmed, and treats blank as unset', () => {
+    expect(loadConfig({ ...base, OPENTRANSPORTDATA_KEY: ' abc \n' }).opentransportdataKey).toBe('abc');
+    expect(loadConfig({ ...base, OPENTRANSPORTDATA_KEY: '  ' }).opentransportdataKey).toBeNull();
   });
 });

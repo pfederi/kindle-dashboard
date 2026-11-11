@@ -111,7 +111,7 @@ async function main(): Promise<void> {
       uetliberg: { get: async (force) => (await uetlibergCache.get(force))?.value ?? null },
       waste: wasteCache ? { pickups: async (force) => (await wasteCache.get(force))?.value ?? null } : undefined,
       calendar: rosterStore && rosterConfig ? withRoster(calendarSource, rosterStore, rosterConfig.badge) : calendarSource,
-      transit: new TransitSource(config.stations, fetchFn, clock),
+      transit: new TransitSource(config.stations, fetchFn, clock, config.opentransportdataKey),
       bring,
       tasks,
       commutes,

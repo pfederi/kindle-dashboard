@@ -2,6 +2,7 @@ import { TtlCache } from '../cache.js';
 import type { Clock } from '../clock.js';
 import type { StationConfig } from '../config.js';
 import type { FetchFn } from '../http.js';
+import { OJP_URL, ojpStopEventRequest, parseStopEvents } from './ojp.js';
 
 export interface Departure {
   line: string;
@@ -102,20 +103,27 @@ export function upcoming(deps: Departure[], now: Date, n = 4): Departure[] {
 export class TransitSource {
   private readonly entries: { station: StationConfig; cache: TtlCache<{ name: string | null; departures: Departure[] }> }[];
 
-  constructor(stations: StationConfig[], fetchFn: FetchFn, clock: Clock) {
+  /** With an opentransportdata.swiss key the official OJP API is used; without, the transport.opendata.ch wrapper. */
+  constructor(stations: StationConfig[], fetchFn: FetchFn, clock: Clock, apiKey: string | null = null) {
+    const loadOjp = async (station: StationConfig) => {
+      const res = await fetchFn(OJP_URL, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/xml' },
+        body: ojpStopEventRequest(station.id, clock()),
+        signal: AbortSignal.timeout(TRANSIT_TIMEOUT_MS),
+      });
+      if (!res.ok) throw new Error(`OJP HTTP ${res.status}`);
+      return parseStopEvents(await res.text(), station);
+    };
+    const loadWrapper = async (station: StationConfig) => {
+      const res = await fetchFn(stationboardUrl(station.id), { signal: AbortSignal.timeout(TRANSIT_TIMEOUT_MS) });
+      if (!res.ok) throw new Error(`stationboard HTTP ${res.status}`);
+      const json = await res.json();
+      return { name: parseStationName(json), departures: parseStationboard(json, station) };
+    };
     this.entries = stations.map((station) => ({
       station,
-      cache: new TtlCache(
-        TRANSIT_TTL_MS,
-        async () => {
-          const res = await fetchFn(stationboardUrl(station.id), { signal: AbortSignal.timeout(TRANSIT_TIMEOUT_MS) });
-          if (!res.ok) throw new Error(`stationboard HTTP ${res.status}`);
-          const json = await res.json();
-          return { name: parseStationName(json), departures: parseStationboard(json, station) };
-        },
-        clock,
-        `transit:${station.name}`,
-      ),
+      cache: new TtlCache(TRANSIT_TTL_MS, () => (apiKey ? loadOjp(station) : loadWrapper(station)), clock, `transit:${station.name}`),
     }));
   }
 
