@@ -3,6 +3,7 @@ import { formatTime, formatWeekday, isoDate, startOfDay } from '../format.js';
 import type { SourceHealth } from '../health.js';
 import { BATTERY_LOW } from '../monitor.js';
 import type { BatterySample } from '../status.js';
+import { monthLabel } from '../roster/parse.js';
 
 /** Later than announced by this much, the Kindle counts as overdue. */
 export const OVERDUE_MS = 5 * 60_000;
@@ -14,6 +15,8 @@ export interface StatusModel {
   nextDue: Date | null;
   battery: readonly BatterySample[];
   sources: SourceHealth[];
+  /** Uploaded duty rosters; absent = roster off. */
+  roster?: { months: { month: string; uploadedAt: Date }[]; lastError: { at: Date; text: string } | null };
 }
 
 const dateTime = (d: Date) => `${formatWeekday(d)} ${isoDate(d).slice(8, 10)}.${isoDate(d).slice(5, 7)}. ${formatTime(d)}`;
@@ -153,6 +156,18 @@ function Status({ m }: { m: StatusModel }) {
               ))}
             </tbody>
           </table>
+        </>
+      )}
+
+      {m.roster && (
+        <>
+          <h2>Dienstplan</h2>
+          <dl>
+            <dt>Pläne</dt>
+            <dd>{m.roster.months.length === 0 ? 'noch keiner hochgeladen' : m.roster.months.map((r) => `${monthLabel(r.month)} · hochgeladen ${dateTime(r.uploadedAt)}`).join(', ')}</dd>
+            <dt>Letzter Fehler</dt>
+            <dd>{m.roster.lastError ? `${dateTime(m.roster.lastError.at)}: ${m.roster.lastError.text}` : '–'}</dd>
+          </dl>
         </>
       )}
 

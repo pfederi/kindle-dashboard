@@ -15,10 +15,13 @@ import { type BringCatalog, loadCatalog, verbatimNames } from './sources/bring/c
 import { BringClient } from './sources/bring/client.js';
 import { BringSource, disabledBring, MAX_TASK_TILES, type ShoppingSource, TASK_SUGGESTIONS } from './sources/bring/source.js';
 import { CalendarSource } from './sources/calendar.js';
+import { withRoster } from './roster/calendar.js';
+import { RosterStore } from './roster/store.js';
+import { receiveRoster } from './roster/upload.js';
 import { TransitSource } from './sources/transit.js';
 import { fetchLakeTemp } from './sources/lake.js';
 import { fetchAboveFog } from './sources/uetliberg.js';
-import { fetchCommute, trip } from './sources/commute.js';
+import { type Commute, fetchCommute, trip } from './sources/commute.js';
 import { CommuteRouteSource } from './sources/commute-route.js';
 import { fetchWaste } from './sources/waste.js';
 import { fetchWeather } from './sources/weather.js';
@@ -44,6 +47,8 @@ async function main(): Promise<void> {
     const travel = new TtlCache(5 * 60_000, () => fetchCommute(fetchFn, t), clock, name);
     const routeSource = new CommuteRouteSource(fetchFn, t);
     const route = new TtlCache(2 * 60_000, () => routeSource.load(), clock, `${name}:route`);
+    // The ride at a planned departure (before a duty): one query per departure, kept 15 minutes.
+    let planned: { at: number; cache: TtlCache<Commute> } | null = null;
     return {
       label: d.label,
       icon: d.icon,
@@ -51,6 +56,12 @@ async function main(): Promise<void> {
       days: d.days,
       walkMinutes: commuteConfig.walkMinutes,
       get: async (force) => (await travel.get(force))?.value ?? null,
+      at: async (departure, force) => {
+        if (planned?.at !== departure.getTime()) {
+          planned = { at: departure.getTime(), cache: new TtlCache(15 * 60_000, () => fetchCommute(fetchFn, t, departure), clock, `${name}:planned`) };
+        }
+        return (await planned.cache.get(force))?.value ?? null;
+      },
       route: async (force) => (await route.get(force))?.value ?? null,
     };
   });
@@ -82,6 +93,12 @@ async function main(): Promise<void> {
   const monitorTimer = monitor ? setInterval(() => void monitor.check(), 60_000) : null;
   monitorTimer?.unref();
 
+  // Duty roster from the iOS shortcut (optional, ROSTER_TOKEN): calendar entries and the leave time.
+  const rosterConfig = config.roster;
+  const rosterStore = rosterConfig ? new RosterStore(rosterConfig.dir) : null;
+  rosterStore?.load();
+  const calendarSource = new CalendarSource(config.calendars, fetchFn, clock);
+
   const status = new DeviceStatus(clock);
   const renderer = await PlaywrightRenderer.launch();
   const dashboard = new Dashboard({
@@ -90,11 +107,12 @@ async function main(): Promise<void> {
       lake: { get: async (force) => (await lakeCache.get(force))?.value ?? null },
       uetliberg: { get: async (force) => (await uetlibergCache.get(force))?.value ?? null },
       waste: wasteCache ? { pickups: async (force) => (await wasteCache.get(force))?.value ?? null } : undefined,
-      calendar: new CalendarSource(config.calendars, fetchFn, clock),
+      calendar: rosterStore && rosterConfig ? withRoster(calendarSource, rosterStore, rosterConfig.badge) : calendarSource,
       transit: new TransitSource(config.stations, fetchFn, clock),
       bring,
       tasks,
       commutes,
+      roster: rosterStore && rosterConfig ? { today: (now) => rosterStore.today(now), buffers: rosterConfig.buffers } : undefined,
     },
     renderer,
     clock,
@@ -115,6 +133,10 @@ async function main(): Promise<void> {
     previewPassword: config.previewPassword,
     stations: config.stations.map((s) => s.name),
     commutes: commuteConfig?.destinations.map((d) => d.label),
+    roster:
+      rosterStore && rosterConfig
+        ? { token: rosterConfig.token, receive: (pdf) => receiveRoster(pdf, { name: rosterConfig.name, store: rosterStore, clock, notify: notify ?? undefined }) }
+        : undefined,
     onBattery: (b) => {
       // Every change of the level, so the log shows how fast the battery drains (Coolify adds the time).
       if (status.battery(b)) console.log(`[battery] ${b.level} %${b.charging ? ' lädt' : ''}`);
@@ -122,7 +144,7 @@ async function main(): Promise<void> {
       void batteryMonitor?.report(b);
     },
     statusHtml: () =>
-      statusHtml({ now: clock(), startedAt: status.startedAt, lastSeen: status.lastSeen, nextDue: status.nextDue, battery: status.history(), sources: sourceHealth.list() }),
+      statusHtml({ now: clock(), startedAt: status.startedAt, lastSeen: status.lastSeen, nextDue: status.nextDue, battery: status.history(), sources: sourceHealth.list(), roster: rosterStore ? { months: rosterStore.list(), lastError: rosterStore.lastError } : undefined }),
     logger: true,
   });
   let shuttingDown = false;

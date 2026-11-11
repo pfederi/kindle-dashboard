@@ -119,6 +119,11 @@ Der Server läuft als Docker-Container, z. B. in [Coolify](https://coolify.io).
 | `COMMUTE_SCHOOL_LABEL` | | Name der Schulfahrt (Reiter in «Arbeitsweg»), Standard `Schule` |
 | `COMMUTE_BADGE`, `COMMUTE_SCHOOL_BADGE` | | Kürzel (1–4 Zeichen) vor der Fahrt, wie bei den Kalendern, z. B. wessen Weg es ist; Standard keins |
 | `COMMUTE_WALK_MINUTES` | | Fussweg bis zum Roller (z. B. zur Garage) in Minuten, wird zur Fahrzeit addiert; Fahrzeit und Ankunft gelten dann ab der Haustür. Standard `0` |
+| `ROSTER_TOKEN` | | Schaltet den Dienstplan ein: Schlüssel für den Kurzbefehl, mindestens 24 Zeichen, z. B. `openssl rand -base64 32 \| tr '+/' '-_' \| tr -d '='`; nur in Coolify |
+| `ROSTER_NAME` | | Name am Anfang der Zeile im Dienstplan (ein Wort); nur in Coolify |
+| `ROSTER_BUFFER_WORK`, `ROSTER_BUFFER_SCHOOL` | | So viele Minuten vor Beginn da sein, Standard `5` (Arbeit) und `10` (Schule) |
+| `ROSTER_BADGE` | | Kürzel der Dienste im Kalender, Standard `COMMUTE_BADGE`, sonst die ersten zwei Buchstaben des Namens |
+| `ROSTER_DIR` | | Ablage der gelesenen Pläne, Standard `/app/state`; in Coolify als Volume einbinden (lokal z. B. `./state`) |
 | `QUIET_HOURS` | | Nachtruhe mit Nachtbildschirm, ohne Aktualisierung und mit ausgeschaltetem WLAN (spart Akku), Standard `00:00-05:30`, über Mitternacht möglich (z. B. `22:30-06:00`); leer = aus |
 | `NTFY_TOPIC` | | Push-Benachrichtigung über [ntfy](https://ntfy.sh), wenn der Kindle sich nicht mehr meldet oder der Akku fast leer ist: ein schwer erratbarer Name, z. B. `kindle-` + 12 zufällige Zeichen |
 | `NTFY_SERVER` | | ntfy-Server, Standard `https://ntfy.sh` |
@@ -146,6 +151,16 @@ Der Server läuft als Docker-Container, z. B. in [Coolify](https://coolify.io).
 Der Server kennt nach jedem Bild den Zeitpunkt der nächsten Abfrage (in der Nachtruhe Stunden später). Bleibt sie länger als `OFFLINE_ALERT_MINUTES` aus, kommt «Kindle meldet sich nicht», nach der Rückkehr «Kindle wieder online».
 
 Der Kindle schickt bei jeder Abfrage seinen Ladestand mit. Sinkt er auf 20 % oder weniger, ohne dass er lädt, kommt einmal «Kindle-Akku fast leer», bei 5 % dringend «Kindle-Akku: JETZT LADEN»; beides erneut erst, nachdem er geladen hat (oder wieder über 25 % liegt). Das braucht den Kindle-Client ab 2026-11-06. Jede Änderung des Ladestands steht im Server-Log (`[battery] 87 %`, beim Laden `[battery] 87 % lädt`); mit den Zeitstempeln in Coolify sieht man, wie lange der Akku hält.
+
+### Dienstplan (optional)
+
+Ein monatlicher Dienstplan als PDF (Excel-Export mit Tageszeile «1. 2. 3. …», je Person eine Zeile mit Beginn und Ende, Schule hellblau) kommt per Kurzbefehl auf den Server. Danach stehen die Dienste als «Arbeit» bzw. «Schule» im Kalender, und die Roller-Zeile zeigt an Diensttagen nur das passende Ziel mit der Losfahrzeit («Arbeit 13:30 · los 12:58 · 27 Min.»), an freien Tagen keine Zeile. Für einen Monat ohne Plan bleibt alles wie ohne Dienstplan.
+
+1. In Coolify `ROSTER_TOKEN` und `ROSTER_NAME` setzen und unter «Persistent Storage» ein Volume auf `/app/state` einrichten.
+2. Auf dem iPhone in «Kurzbefehle» einen neuen Kurzbefehl «Dienstplan senden» anlegen: in den Details «Im Share-Sheet anzeigen» einschalten, Eingabe nur «PDFs». Aktionen: «Inhalte von URL abrufen» mit der Adresse `https://<dashboard>/dienstplan`, Methode `POST`, Header `Authorization` = `Bearer <ROSTER_TOKEN>` und `Content-Type` = `application/pdf`, Anfragetext «Datei» = «Kurzbefehleingabe»; danach «Ergebnis anzeigen».
+3. In WhatsApp das PDF öffnen → Teilen → «Dienstplan senden». Die Antwort, z. B. «November 2026: 10× Arbeit, 9× Schule, 11× frei. Nächster Dienst: …», erscheint sofort und mit `NTFY_TOPIC` auch als Push. Ein neuer Plan für denselben Monat ersetzt den alten.
+
+Kann der Plan nicht gelesen werden, sagt die Antwort warum (z. B. «Name nicht gefunden»), und der bisherige Plan bleibt. Die Statusseite (`/preview/status`) zeigt die geladenen Monate und den letzten Fehler. Vorschau: «Heute mit Dienst (Arbeit)» bzw. «(Schule)».
 
 ### Prüfen
 
@@ -268,6 +283,7 @@ Wichtige Stellen:
 | `src/dashboard.ts` | Zustand, Taps, welche Daten in welche Ansicht kommen |
 | `src/state.ts` | Ansichten, Aktionen, Navigation |
 | `src/sources/` | Datenquellen (Wetter, Kalender, ÖV, Bring!, See, Entsorgung) |
+| `src/roster/` | Dienstplan: PDF lesen, ablegen, Kalender und Losfahrzeit |
 | `src/views/` | Ansichten als Preact-Komponenten, `styles.ts` für das CSS |
 | `src/render/` | Chromium-Rendering auf 600 × 800, Graustufen |
 

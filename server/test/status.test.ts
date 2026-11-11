@@ -63,4 +63,16 @@ describe('status page', () => {
     expect(html).toContain('<path class="line"');
     expect(html).toContain('<title>Fr 06.11. 20:00 · 18 %</title>');
   });
+
+  it('lists the uploaded rosters and the last failed upload, only when the roster is on', () => {
+    expect(statusHtml(base)).not.toContain('Dienstplan');
+    const html = statusHtml({
+      ...base,
+      roster: { months: [{ month: '2026-11', uploadedAt: new Date('2026-11-06T20:54:00+01:00') }], lastError: { at: new Date('2026-11-06T20:50:00+01:00'), text: 'Dienstplan nicht erkannt: Name «X» nicht gefunden' } },
+    });
+    expect(html).toContain('<h2>Dienstplan</h2>');
+    expect(html).toContain('November 2026 · hochgeladen Fr 06.11. 20:54');
+    expect(html).toContain('Fr 06.11. 20:50: Dienstplan nicht erkannt: Name «X» nicht gefunden');
+    expect(statusHtml({ ...base, roster: { months: [], lastError: null } })).toContain('noch keiner hochgeladen');
+  });
 });
