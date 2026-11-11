@@ -1,6 +1,9 @@
 import type { Clock } from './clock.js';
 import { type HealthRegistry, sourceHealth } from './health.js';
 
+/** After a failed load, wait this long before trying again (unless forced), so a dead source costs one timeout, not one per request. */
+export const RETRY_BACKOFF_MS = 60_000;
+
 export interface Cached<T> {
   value: T;
   fetchedAt: Date;
@@ -18,6 +21,7 @@ export function scrubUrls(message: string): string {
 export class TtlCache<T> {
   private entry: Cached<T> | null = null;
   private dirty = false;
+  private failedAt: number | null = null;
   private inflight: Promise<Cached<T> | null> | null = null;
   private generation = 0;
   private inflightGeneration = 0;
@@ -36,6 +40,9 @@ export class TtlCache<T> {
     const fresh = this.entry !== null && now - this.entry.fetchedAt.getTime() < this.ttlMs;
     if (!force && !this.dirty && fresh && this.entryGeneration === this.generation) return this.entry;
 
+    const stillBackingOff = this.failedAt !== null && now - this.failedAt < RETRY_BACKOFF_MS;
+    if (!force && !this.dirty && stillBackingOff && !this.inflight) return this.entry;
+
     // Bump generation if forcing to ensure a new load
     if (force) this.generation++;
 
@@ -53,6 +60,7 @@ export class TtlCache<T> {
       .then(
         (value) => {
           this.health.ok(this.name, this.clock());
+          this.failedAt = null;
           // Only update if generation hasn't changed since THIS load started (currentGen captured at start)
           if (currentGen === this.generation) {
             this.entry = { value, fetchedAt: this.clock() };
@@ -68,6 +76,7 @@ export class TtlCache<T> {
           const message = scrubUrls(err instanceof Error ? err.message : String(err));
           console.warn(`[${this.name}] load failed: ${message}`);
           this.health.fail(this.name, this.clock(), message);
+          this.failedAt = this.clock().getTime();
           if (currentGen === this.generation) {
             return this.entry;
           } else if (this.inflight && this.inflight !== thisPromise) {
@@ -91,6 +100,7 @@ export class TtlCache<T> {
 
   invalidate(): void {
     this.dirty = true;
+    this.failedAt = null;
     this.generation++;
   }
 }

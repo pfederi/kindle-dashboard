@@ -2,7 +2,6 @@ import { TtlCache } from '../cache.js';
 import type { Clock } from '../clock.js';
 import type { StationConfig } from '../config.js';
 import type { FetchFn } from '../http.js';
-import { TIMEOUT_MS } from '../http.js';
 
 export interface Departure {
   line: string;
@@ -23,6 +22,8 @@ export interface StationBoard {
   fetchedAt: Date | null;
 }
 
+/** Shorter than the default: a dead API must not hold up the whole home screen. */
+const TRANSIT_TIMEOUT_MS = 5_000;
 export const TRANSIT_TTL_MS = 2 * 60_000;
 /** From this delay on, the departure time is shown inverted. */
 export const LATE_MIN = 5;
@@ -107,7 +108,7 @@ export class TransitSource {
       cache: new TtlCache(
         TRANSIT_TTL_MS,
         async () => {
-          const res = await fetchFn(stationboardUrl(station.id), { signal: AbortSignal.timeout(TIMEOUT_MS) });
+          const res = await fetchFn(stationboardUrl(station.id), { signal: AbortSignal.timeout(TRANSIT_TIMEOUT_MS) });
           if (!res.ok) throw new Error(`stationboard HTTP ${res.status}`);
           const json = await res.json();
           return { name: parseStationName(json), departures: parseStationboard(json, station) };

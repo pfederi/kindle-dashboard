@@ -242,4 +242,33 @@ describe('TtlCache', () => {
       { name: 'calendar:FAM', lastOk: new Date('2026-11-03T07:00:00+01:00'), lastError: { at: new Date('2026-11-03T07:01:01+01:00'), message: 'GET <url> failed' } },
     ]);
   });
+
+  it('does not retry a failed load right away, so a dead source does not slow every request', async () => {
+    const clock = testClock('2026-11-03T07:00:00+01:00');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const load = vi.fn(async (): Promise<string> => { throw new Error('timeout'); });
+    const cache = new TtlCache(60_000, load, clock);
+    expect(await cache.get()).toBeNull();
+    clock.advance(10_000);
+    expect(await cache.get()).toBeNull();
+    expect(load).toHaveBeenCalledTimes(1);
+    clock.advance(60_000);
+    await cache.get();
+    expect(load).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
+  it('retries a failed load immediately when forced or invalidated', async () => {
+    const clock = testClock('2026-11-03T07:00:00+01:00');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const load = vi.fn(async (): Promise<string> => { throw new Error('timeout'); });
+    const cache = new TtlCache(60_000, load, clock);
+    await cache.get();
+    await cache.get(true);
+    expect(load).toHaveBeenCalledTimes(2);
+    cache.invalidate();
+    await cache.get();
+    expect(load).toHaveBeenCalledTimes(3);
+    warn.mockRestore();
+  });
 });
