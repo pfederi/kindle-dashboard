@@ -211,7 +211,7 @@ flowchart TB
 | Status | `status.ts`, `health.ts`, `views/status.tsx` | Letzte Abfrage und Akkuverlauf des Kindle (Kurve in `STATE_DIR/battery.json`, `BatteryFile`), Erfolg und Fehler jeder Datenquelle (aus `TtlCache`), geladene Dienstplanmonate und letzter Upload-Fehler; Seite `/preview/status` |
 | Dienstplan | `roster/pdf.ts`, `parse.ts`, `store.ts`, `upload.ts`, `shift.ts`, `calendar.ts`, `summary.ts` | `extractPdf` liest Wörter und gefüllte Rechtecke aus dem PDF (pdfjs-dist), `parseRoster` (rein) macht daraus Tage mit Dienst oder frei; `RosterStore` legt pro Monat `roster-YYYY-MM.json` in `STATE_DIR` ab; `receiveRoster` verbindet Lesen, Ablegen, Antwort und ntfy; `withRoster` fügt die Dienste als Kalendertermine ein; `shift.ts` rechnet Dienstzeiten und Losfahrzeit |
 | Datenquellen | `sources/weather.ts`, `lake.ts`, `uetliberg.ts`, `calendar.ts`, `transit.ts`, `waste.ts`, `commute.ts`, `commute-route.ts`, `bring/` | Abruf und Aufbereitung je Quelle; Bring! mit zwei Listen (Einkauf, Aufgaben) über eine Anmeldung |
-| Zwischenspeicher | `cache.ts` | Ablaufzeit, Rückfall auf ältere Werte, gleichzeitige Abfragen bündeln |
+| Zwischenspeicher | `cache.ts` | Ablaufzeit, Rückfall auf ältere Werte, 60 s Pause nach einem Fehlschlag, gleichzeitige Abfragen bündeln |
 | Überwachung | `monitor.ts` | Merkt sich nach jedem Bild, wann der Kindle wiederkommen soll; meldet Ausfall und Rückkehr über ntfy, ebenso einen Akku ab 20 % |
 | Ansichten | `views/*.tsx`, `styles.ts`, `icons.ts` | Heute, Woche, Einkauf, Hinzufügen, Wetter, Haltestelle als Preact-Komponenten; SVG-Grafiken; gemeinsame Bausteine wie Terminliste (mit Balken im Gast-Modus) und Geburtstagsbanner in `components.tsx` |
 | Renderer | `render/` | Chromium (Playwright), Bildschirmgrösse und Skalierung, Graustufen; blockiert jeden Netzwerkzugriff gerenderter Seiten |
@@ -433,7 +433,7 @@ flowchart LR
 
 ### 8.4 Fehlerbehandlung
 
-- Quellen werfen bei Fehlern; der Zwischenspeicher behält den letzten gültigen Wert und versucht es beim nächsten Abruf erneut.
+- Quellen werfen bei Fehlern; der Zwischenspeicher behält den letzten gültigen Wert. Nach einem Fehlschlag versucht er es 60 Sekunden lang nicht erneut, damit eine ausgefallene Quelle nicht bei jedem Bild den vollen Timeout kostet; ein erzwungener Abruf (Antippen) und `invalidate()` überspringen die Pause. Die Abfahrten brechen nach 5 Sekunden ab, die übrigen Quellen nach 15.
 - Ansichten unterscheiden «keine Daten» (Quelle fehlt) von «keine Termine/Abfahrten» (leer).
 - Bring!-Aktionen liefern ein Ergebnis (`added`, `duplicate`, `done`, `gone`, `failed`), das als Meldung angezeigt wird.
 - Der Client überlebt jeden Fehler in einer Goroutine (Panic → sauberes Beenden mit Rückgabe der Oberfläche).
@@ -501,6 +501,7 @@ flowchart LR
 | 33 | **PDF über Positionen lesen** (pdfjs-dist, Wörter und gefüllte Rechtecke), kein Sprachmodell; Schule an der Zellfarbe | Deterministisch, kostenlos, offline, ohne dass der Plan an einen Dritten geht; Parser rein und ohne PDF testbar | Bricht, wenn sich das Layout der Excel-Vorlage ändert; dann meldet der Upload den Grund und der alte Plan bleibt |
 | 34 | **Zustand auf einem Volume** (`STATE_DIR`: Dienstpläne und Akkukurve als JSON, über temporäre Datei und `rename`) | Pläne müssen Deployments überstehen; die Akkukurve ebenso, sonst beginnt sie nach jedem Deploy neu (löst die Einschränkung aus Entscheidung 27) | Ein Volume in Coolify nötig; ohne warnt der Server (Log, Antwort, Statusseite). Gast-Schalter und Gerätezustand bleiben im Arbeitsspeicher |
 | 35 | **Losfahrzeit mit üblichem Verkehr zur Abfahrtszeit**, ab 30 Min. vorher live | Eine Stunde vorher sagt der Live-Verkehr wenig über die Fahrt zur Losfahrzeit; kurz davor zählt er | Die erste Schätzung nimmt die Live-Fahrzeit, danach wird sie nachgeführt; zusätzliche HERE-Abfragen (Cache 15 Min.) |
+| 36 | **Abfahrten über die offizielle OJP-2.0-Schnittstelle von opentransportdata.swiss** (`OPENTRANSPORTDATA_KEY`, Pflicht) statt über den Community-Dienst transport.opendata.ch | Der Community-Dienst fiel aus, und jede Anfrage wartete den vollen Timeout; die offizielle Quelle hat keinen Zwischenbetreiber | API-Key nötig (nur in Coolify); Antwort ist XML (`fast-xml-parser`), Folgehalte werden für die Richtung mitgeladen; gestrichene Fahrten werden nicht erkannt |
 
 ---
 

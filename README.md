@@ -247,6 +247,7 @@ Ganz oben steht **Status** (`/preview/status`): letzte und nächste Abfrage des 
 |---|---|
 | Dashboard startet nicht | `Kindle/dashboard/client.log` und `crash.log` ansehen (Kindle per USB anschliessen). Fehlt `config.json`, steht das dort. |
 | «Token ungültig» unten rechts | `token` in `config.json` stimmt nicht mit `DEVICE_TOKEN` in Coolify überein. |
+| Abfahrten fehlen | Im Coolify-Log nach `[transit:…] load failed` suchen. `OJP HTTP 403` heisst: `OPENTRANSPORTDATA_KEY` fehlt, ist falsch oder nicht für OJP 2.0 freigeschaltet. Nach einem Fehlschlag versucht der Server die Quelle 60 Sekunden lang nicht erneut. |
 | «offline seit …» | WLAN des Kindle oder Server prüfen; das Dashboard versucht es selbst wieder. |
 | Kindle reagiert nicht mehr | Ein/Aus-Taste ca. 15 Sekunden halten: Neustart, danach läuft der Kindle normal. |
 | Touch-Werte prüfen | Skript **Dashboard-Diagnose** in der Bibliothek antippen; Ergebnis in `Kindle/dashboard/diag.txt`. |
