@@ -59,6 +59,7 @@ describe('loadConfig', () => {
     const env = { ...base, HERE_API_KEY: ' k3y ', COMMUTE_FROM: '47.411, 8.544', COMMUTE_TO: '47.378,8.54' };
     expect(loadConfig(env).commute).toEqual({
       apiKey: 'k3y',
+      mode: 'scooter',
       from: { lat: 47.411, lon: 8.544 },
       highway: true,
       walkMinutes: 0,
@@ -87,6 +88,8 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...env, COMMUTE_TO: 'Bahnhofstrasse 1' })).toThrow(/COMMUTE_TO must look like/);
     expect(() => loadConfig({ ...env, COMMUTE_FROM: '95,8' })).toThrow(/COMMUTE_FROM/);
     expect(() => loadConfig({ ...env, COMMUTE_HIGHWAY: 'ja' })).toThrow(/COMMUTE_HIGHWAY/);
+    expect(loadConfig({ ...env, COMMUTE_MODE: 'car' }).commute?.mode).toBe('car');
+    expect(() => loadConfig({ ...env, COMMUTE_MODE: 'bike' })).toThrow(/COMMUTE_MODE/);
   });
 
   it('reads school days as weekday abbreviations, lists and ranges, as Date.getDay counts them', () => {

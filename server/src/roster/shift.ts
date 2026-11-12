@@ -32,7 +32,7 @@ export function shiftOn(day: RosterDay, date: Date): Shift | null {
 }
 
 /** From this many minutes before leaving, live traffic tells the ride better than the usual traffic at that time. */
-export const LIVE_BEFORE_MIN = 30;
+export const LIVE_BEFORE_MIN = 45;
 
 /** When to leave home: the start less the buffer and the ride door to door, down to the minute. */
 export function leaveBy(start: Date, bufferMin: number, doorToDoorMin: number): Date {

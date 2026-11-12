@@ -1,6 +1,6 @@
 import type { FetchFn } from '../http.js';
 import { TIMEOUT_MS } from '../http.js';
-import { type Commute, type Summary, sumSections, type Trip } from './commute.js';
+import { type Commute, modeParams, type Summary, sumSections, type Trip } from './commute.js';
 
 /** [latitude, longitude] */
 export type LatLon = [number, number];
@@ -87,13 +87,12 @@ export function decodePolyline(encoded: string): LatLon[] {
 /** Like commuteUrl, with the geometry, the traffic speed and street name per stretch, and one alternative. */
 export function routesUrl(c: Trip): string {
   const q = new URLSearchParams({
-    transportMode: 'scooter',
+    ...modeParams(c),
     origin: `${c.from.lat},${c.from.lon}`,
     destination: `${c.to.lat},${c.to.lon}`,
     return: 'polyline,summary,typicalDuration',
     spans: 'dynamicSpeedInfo,names,length',
     alternatives: '1',
-    'scooter[allowHighway]': String(c.highway),
     apiKey: c.apiKey,
   });
   return `https://router.hereapi.com/v8/routes?${q}`;

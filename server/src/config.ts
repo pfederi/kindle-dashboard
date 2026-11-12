@@ -53,9 +53,13 @@ export interface CommuteDestination {
   days: number[];
 }
 
-/** Scooter travel time with live traffic (HERE) from home to work and, optionally, to school. */
+/** Vehicle for the ride: «scooter» also stands for a motorcycle. */
+export type CommuteMode = 'scooter' | 'car';
+
+/** Travel time with live traffic (HERE) from home to work and, optionally, to school. */
 export interface CommuteConfig {
   apiKey: string;
+  mode: CommuteMode;
   from: { lat: number; lon: number };
   /** Motorways allowed (a 125 cm³ scooter may use them). */
   highway: boolean;
@@ -287,12 +291,15 @@ function commute(env: Env): CommuteConfig | null {
   if (set.length < keys.length) throw new Error(`Scooter travel time needs ${keys.filter((k) => !set.includes(k)).join(', ')} as well`);
   const highway = (env.COMMUTE_HIGHWAY ?? '1').trim();
   if (highway !== '0' && highway !== '1') throw new Error('COMMUTE_HIGHWAY must be 1 (motorways allowed) or 0');
+  const mode = (env.COMMUTE_MODE ?? 'scooter').trim();
+  if (mode !== 'scooter' && mode !== 'car') throw new Error('COMMUTE_MODE must be scooter (also for a motorcycle) or car');
   const walk = (env.COMMUTE_WALK_MINUTES ?? '').trim();
   if (walk !== '' && !/^\d{1,2}$/.test(walk)) throw new Error('COMMUTE_WALK_MINUTES must be whole minutes from 0 to 99');
   const school = env.COMMUTE_SCHOOL_TO?.trim();
   return {
     apiKey: env.HERE_API_KEY!.trim(),
     from: coords('COMMUTE_FROM', env.COMMUTE_FROM!),
+    mode,
     highway: highway === '1',
     walkMinutes: walk === '' ? 0 : Number(walk),
     destinations: [

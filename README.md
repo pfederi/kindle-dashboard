@@ -116,6 +116,7 @@ Der Server läuft als Docker-Container, z. B. in [Coolify](https://coolify.io).
 | `HERE_API_KEY` | | Schlüssel von [HERE](https://platform.here.com) (kostenloses Konto) für die Roller-Fahrzeit mit Verkehr; nur in Coolify |
 | `COMMUTE_FROM`, `COMMUTE_TO` | | Start und Ziel der Roller-Fahrt als `Breite,Länge`, z. B. `47.411,8.544` (in Google Maps Rechtsklick auf den Ort); nur in Coolify, nie im Repository |
 | `COMMUTE_HIGHWAY` | | `1` = Autobahn erlaubt (125 cm³, Standard), `0` = ohne |
+| `COMMUTE_MODE` | | `scooter` (Standard, gilt auch für ein Motorrad) oder `car`; bei `car` heisst `COMMUTE_HIGHWAY=0`, dass Autobahnen gemieden werden |
 | `COMMUTE_LABEL` | | Text vor der Fahrzeit, Standard `Zur Arbeit` |
 | `COMMUTE_SCHOOL_TO` | | Ziel der Fahrt zur Schule als `Breite,Länge`, gleicher Start; nur in Coolify |
 | `COMMUTE_SCHOOL_DAYS` | | Tage mit Schule, z. B. `Mo,Di` oder `Mo-Fr` (Standard); an den anderen Tagen fehlt die Schule in der Zeile und wird nur beim Öffnen ihres Reiters abgefragt |
@@ -157,7 +158,7 @@ Der Kindle schickt bei jeder Abfrage seinen Ladestand mit. Sinkt er auf 20 % ode
 
 ### Dienstplan (optional)
 
-Ein monatlicher Dienstplan als PDF (Excel-Export mit Tageszeile «1. 2. 3. …», je Person eine Zeile mit Beginn und Ende, Schule hellblau) kommt per Kurzbefehl auf den Server. Danach stehen die Dienste als «Arbeit» bzw. «Schule» im Kalender, und die Roller-Zeile zeigt an Diensttagen nur das passende Ziel mit der Losfahrzeit («Arbeit 13:30 · los 12:58 · 27 Min.»), an freien Tagen keine Zeile. Für einen Monat ohne Plan bleibt alles wie ohne Dienstplan.
+Ein monatlicher Dienstplan als PDF (Excel-Export mit Tageszeile «1. 2. 3. …», je Person eine Zeile mit Beginn und Ende, Schule hellblau) kommt per Kurzbefehl auf den Server. Danach stehen die Dienste als «Arbeit» bzw. «Schule» im Kalender, und die Roller-Zeile zeigt an Diensttagen nur das passende Ziel mit der Losfahrzeit («Arbeit 13:30 · los 12:58 · 27 Min.»), an freien Tagen keine Zeile. Die Losfahrzeit ist am Morgen eine Prognose mit dem Verkehr, der zu dieser Zeit üblich ist; 45 Minuten vor dem Losfahren wechselt sie auf den Live-Verkehr. Für einen Monat ohne Plan bleibt alles wie ohne Dienstplan.
 
 1. In Coolify `ROSTER_TOKEN` und `ROSTER_NAME` setzen und unter «Persistent Storage» ein Volume auf `/app/state` einrichten («Volume Mount», Quellpfad leer). Fehlt es, nimmt der Server den Plan trotzdem an, verliert ihn aber beim nächsten Deploy; die Antwort und die Statusseite warnen dann («kein Volume»).
 2. Auf dem iPhone in «Kurzbefehle» einen neuen Kurzbefehl «Dienstplan senden» anlegen: in den Details «Im Share-Sheet anzeigen» einschalten, Eingabe nur «PDFs». Aktionen: «Inhalte von URL abrufen» mit der Adresse `https://<dashboard>/dienstplan`, Methode `POST`, Header `Authorization` = `Bearer <ROSTER_TOKEN>` und `Content-Type` = `application/pdf`, Anfragetext «Datei» = «Kurzbefehleingabe»; danach «Ergebnis anzeigen».

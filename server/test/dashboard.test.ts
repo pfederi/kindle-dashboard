@@ -1103,7 +1103,7 @@ describe('Dashboard', () => {
       expect(renderer.lastHtml).not.toContain('data-action="commute:1"');
     });
 
-    it('from 30 minutes before leaving: live traffic; then «los sofort»; gone from the start', async () => {
+    it('from 45 minutes before leaving: live traffic; then «los sofort»; gone from the start', async () => {
       const { dash, renderer, planned, clock } = withRoster(shift('work', '13:30'), '2026-11-03T12:40:00+01:00');
       await dash.screen();
       expect(planned).not.toHaveBeenCalled();
@@ -1114,6 +1114,16 @@ describe('Dashboard', () => {
       clock.set('2026-11-03T13:30:00+01:00');
       await dash.screen();
       expect(renderer.lastHtml).not.toContain('class="commute"');
+    });
+
+    it('switches from the usual to live traffic 45 minutes before leaving', async () => {
+      // live 18 + 5 walk → leave 13:02 → live from 12:17
+      const before = withRoster(shift('work', '13:30'), '2026-11-03T12:16:00+01:00');
+      await before.dash.screen();
+      expect(before.planned).toHaveBeenCalled();
+      const after = withRoster(shift('work', '13:30'), '2026-11-03T12:18:00+01:00');
+      await after.dash.screen();
+      expect(after.planned).not.toHaveBeenCalled();
     });
 
     it('school: its destination, its badge and buffer', async () => {

@@ -20,6 +20,14 @@ describe('commute (HERE scooter routing)', () => {
     expect(new URL(commuteUrl({ ...config, highway: false })).searchParams.get('scooter[allowHighway]')).toBe('false');
   });
 
+  it('asks for a car route, without motorways avoiding them as a feature', () => {
+    const car = new URL(commuteUrl({ ...config, mode: 'car' })).searchParams;
+    expect(car.get('transportMode')).toBe('car');
+    expect(car.has('scooter[allowHighway]')).toBe(false);
+    expect(car.has('avoid[features]')).toBe(false);
+    expect(new URL(commuteUrl({ ...config, mode: 'car', highway: false })).searchParams.get('avoid[features]')).toBe('controlledAccessHighway');
+  });
+
   it('sums the sections and measures the delay against the typical time, else the time without traffic', () => {
     expect(parseCommute(route({ duration: 900, typicalDuration: 700, baseDuration: 600 }, { duration: 180, typicalDuration: 140 }))).toEqual({ minutes: 18, delayMinutes: 4 });
     expect(parseCommute(route({ duration: 900, baseDuration: 840 }))).toEqual({ minutes: 15, delayMinutes: 1 });

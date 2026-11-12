@@ -1,4 +1,4 @@
-import type { CommuteConfig, CommuteDestination } from '../config.js';
+import type { CommuteConfig, CommuteDestination, CommuteMode } from '../config.js';
 import type { FetchFn } from '../http.js';
 import { TIMEOUT_MS } from '../http.js';
 
@@ -13,26 +13,35 @@ export interface Commute {
 /** One ride: from home to one destination. */
 export interface Trip {
   apiKey: string;
+  mode?: CommuteMode;
   from: { lat: number; lon: number };
   to: { lat: number; lon: number };
   highway: boolean;
 }
 
 export function trip(c: CommuteConfig, d: CommuteDestination): Trip {
-  return { apiKey: c.apiKey, from: c.from, to: d.to, highway: c.highway };
+  return { apiKey: c.apiKey, mode: c.mode, from: c.from, to: d.to, highway: c.highway };
 }
 
 /**
- * HERE Routing v8 in scooter mode: roads open to motorcycles, motorways only if allowed (125 cm³).
+ * Vehicle parameters: the scooter mode also serves a motorcycle (HERE has no mode of its own for it);
+ * a car without motorways avoids them as a route feature.
+ */
+export function modeParams(c: Trip): Record<string, string> {
+  if (c.mode === 'car') return { transportMode: 'car', ...(c.highway ? {} : { 'avoid[features]': 'controlledAccessHighway' }) };
+  return { transportMode: 'scooter', 'scooter[allowHighway]': String(c.highway) };
+}
+
+/**
+ * HERE Routing v8 in scooter mode (or car, see modeParams): roads open to motorcycles, motorways only if allowed (125 cm³).
  * Without departureTime HERE routes for now, with live traffic; with it, with the traffic usual then.
  */
 export function commuteUrl(c: Trip, departure?: Date): string {
   const q = new URLSearchParams({
-    transportMode: 'scooter',
+    ...modeParams(c),
     origin: `${c.from.lat},${c.from.lon}`,
     destination: `${c.to.lat},${c.to.lon}`,
     return: 'summary,typicalDuration',
-    'scooter[allowHighway]': String(c.highway),
   });
   if (departure) q.set('departureTime', departure.toISOString().replace(/\.\d{3}Z$/, 'Z'));
   q.set('apiKey', c.apiKey);
