@@ -168,8 +168,8 @@ function Board({ board, index, now }: { board: BoardModel; index: number; now: D
   );
 }
 
-/** Event rows the commute line takes from the agenda. */
-export const COMMUTE_ROWS = 1;
+/** Event rows the commute line takes from the agenda: none, it fits the room the rows leave (render test, also with five dry-day events). */
+export const COMMUTE_ROWS = 0;
 /** The motorbike fills only 15 of its 24 units in height: at 52 px its ink is as tall as the 38 px text. */
 const SCOOTER_ICON = 52;
 /** Below this, a delay is noise and not shown. */
