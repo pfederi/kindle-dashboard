@@ -352,7 +352,7 @@ describe('Heute view', () => {
 
   it('shows the scooter travel time above the departures, a delay from 3 minutes, and no line without configuration', () => {
     const line = (travel: { minutes: number; delayMinutes: number } | null) => heuteMarkup(heuteModel({ commutes: [{ label: 'Zur Arbeit', icon: 'work', badge: '', travel }] }));
-    expect(line({ minutes: 18, delayMinutes: 4 })).toMatch(/<div class="rule"><\/div><div class="commute" data-action="commute:0">.*Zur Arbeit<\/span><b>18 Min\.<\/b><span>an 07:58<\/span><b class="late">\+4 Min\. Stau<\/b><\/div><div class="rule"><\/div><div class="ov">/);
+    expect(line({ minutes: 18, delayMinutes: 4 })).toMatch(/<div class="rule above-commute"><\/div><div class="commute" data-action="commute:0">.*Zur Arbeit<\/span><b>18 Min\.<\/b><span>an 07:58<\/span><b class="late">\+4 Min\. Stau<\/b><\/div><div class="rule"><\/div><div class="ov">/);
     expect(line({ minutes: 15, delayMinutes: 2 })).not.toContain('Stau');
     expect(line(null)).toContain('keine Verkehrsdaten');
     expect(html).not.toContain('class="commute"');

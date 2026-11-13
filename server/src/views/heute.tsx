@@ -431,7 +431,7 @@ function Heute({ m }: { m: HeuteModel }) {
           )}
         </div>
         <div class="transit">
-          <div class="rule" />
+          <div class={m.commutes ? 'rule above-commute' : 'rule'} />
           {m.commutes && (
             <>
               <CommuteLine commutes={m.commutes} now={m.now} />
